@@ -3,16 +3,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "talos-ml"
+name = "calyxos"
 version = "0.1.0"
 description = "Reactive object computation framework with memoized, dependency-aware nodes"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Talos Contributors"}
+    {name = "Krish Shah"}
 ]
-keywords = ["reactive", "computation", "memoization", "dag", "dependency-tracking"]
+keywords = ["reactive", "computation", "memoization", "dag", "dependency-tracking", "ml", "llm"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -24,10 +24,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/krish-shahh/talos"
-Repository = "https://github.com/krish-shahh/talos"
-Issues = "https://github.com/krish-shahh/talos/issues"
-Documentation = "https://github.com/krish-shahh/talos/blob/main/README.md"
+Homepage = "https://github.com/krish-shahh/calyxos"
+Repository = "https://github.com/krish-shahh/calyxos"
+Issues = "https://github.com/krish-shahh/calyxos/issues"
+Documentation = "https://github.com/krish-shahh/calyxos/blob/main/README.md"
 
 dependencies = []
 
@@ -41,16 +41,16 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/talos"]
+packages = ["src/calyxos"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-v --cov=talos --cov-report=term-missing --cov-report=html"
+addopts = "-v --cov=calyxos --cov-report=term-missing --cov-report=html"
 
 [tool.coverage.run]
-source = ["talos"]
+source = ["calyxos"]
 omit = ["*/tests/*"]
 
 [tool.mypy]
@@ -90,4 +90,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["talos"]
+known-first-party = ["calyxos"]

@@ -1,13 +1,13 @@
-# Talos
+# Calyxos
 
-**A reactive computation framework for ML/LLM pipelines.** Talos transforms ordinary Python methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed.
+**A reactive computation framework for ML/LLM pipelines.** Calyxos transforms ordinary Python methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed.
 
-## Why Talos?
+## Why Calyxos?
 
-Modern ML and LLM pipelines are built on chains of transformations: data loading → preprocessing → embedding → inference → post-processing. Each step depends on the previous, and changes ripple through the entire pipeline. Talos automates this dependency tracking and selective invalidation, letting you focus on the logic.
+Modern ML and LLM pipelines are built on chains of transformations: data loading → preprocessing → embedding → inference → post-processing. Each step depends on the previous, and changes ripple through the entire pipeline. Calyxos automates this dependency tracking and selective invalidation, letting you focus on the logic.
 
 ```python
-from talos import fn, stored
+from calyxos import fn, stored
 
 class DataPipeline:
     @stored
@@ -29,14 +29,14 @@ emb2 = pipeline.embeddings()  # Retrieved from cache
 
 ## Overview
 
-Talos is a Python framework for building complex, stateful domain models where correctness, incremental updates, and explainable recomputation are essential. It combines object-native dependency tracking, selective invalidation, and pluggable persistence to enable efficient, deterministic computation graphs. Designed from the ground up for ML/LLM workflows where async I/O, performance profiling, and tensor caching matter.
+Calyxos is a Python framework for building complex, stateful domain models where correctness, incremental updates, and explainable recomputation are essential. It combines object-native dependency tracking, selective invalidation, and pluggable persistence to enable efficient, deterministic computation graphs. Designed from the ground up for ML/LLM workflows where async I/O, performance profiling, and tensor caching matter.
 
 **Key Features:**
 
-- **Lazy evaluation & memoization**: Methods decorated with `@talos.fn` are cached and recomputed only when dependencies change
+- **Lazy evaluation & memoization**: Methods decorated with `@calyxos.fn` are cached and recomputed only when dependencies change
 - **Runtime dependency tracking**: Dependencies are captured dynamically during method execution, not through static analysis
 - **Selective invalidation**: When stored state changes, only affected downstream computations are marked dirty
-- **Stored vs. derived semantics**: Clear separation between persistent inputs (`@talos.stored`) and ephemeral derived values (`@talos.fn`)
+- **Stored vs. derived semantics**: Clear separation between persistent inputs (`@calyxos.stored`) and ephemeral derived values (`@calyxos.fn`)
 - **Pluggable persistence**: Load and save object state via configurable storage backends (SQLite, JSON, custom)
 - **Debug utilities**: Introspect the computation graph, trace why methods recomputed, and analyze dependencies
 - **Async/await support**: Native `@async_fn` decorator for I/O-bound operations with automatic memoization
@@ -48,22 +48,22 @@ Talos is a Python framework for building complex, stateful domain models where c
 ## Installation
 
 ```bash
-pip install talos-ml
+pip install calyxos
 ```
 
 Or for development:
 
 ```bash
-git clone https://github.com/krish-shahh/talos.git
-cd talos
+git clone https://github.com/krish-shahh/calyxos.git
+cd calyxos
 pip install -e ".[dev]"
 ```
 
 ## Quick Start
 
 ```python
-from talos import fn, stored
-from talos.core.decorator import set_stored
+from calyxos import fn, stored
+from calyxos.core.decorator import set_stored
 
 class Portfolio:
     """A simple investment portfolio."""
@@ -125,7 +125,7 @@ set_stored(account, "balance", 200.0)  # Modify stored state and propagate inval
 
 ### 3. Dependency Tracking
 
-Dependencies are captured **at runtime** by recording which Talos-managed methods are called during evaluation. No static analysis or predeclaration needed.
+Dependencies are captured **at runtime** by recording which Calyxos-managed methods are called during evaluation. No static analysis or predeclaration needed.
 
 ```python
 class Model:
@@ -194,8 +194,8 @@ assert get_graph(p1) is not get_graph(p2)
 ### Using SQLite Backend
 
 ```python
-from talos import SQLiteStorage
-from talos.core.persistence import save_object, load_object
+from calyxos import SQLiteStorage
+from calyxos.core.persistence import save_object, load_object
 
 backend = SQLiteStorage("/path/to/data.db")
 
@@ -211,7 +211,7 @@ load_object(portfolio2, backend)
 ### Using JSON Backend
 
 ```python
-from talos import JSONStorage
+from calyxos import JSONStorage
 
 backend = JSONStorage("/path/to/objects/")
 save_object(portfolio, backend)
@@ -246,7 +246,7 @@ class MyBackend:
 Use `GraphDebugger` to inspect the computation graph:
 
 ```python
-from talos import GraphDebugger
+from calyxos import GraphDebugger
 
 portfolio = Portfolio()
 _ = portfolio.total_value()
@@ -271,7 +271,7 @@ print(info)
 
 ### Object-Native Reactive Computation
 
-Talos embraces Python's object model. Methods are the primary unit of computation; decorators transparently convert them into reactive nodes. No external DSLs or configuration files required.
+Calyxos embraces Python's object model. Methods are the primary unit of computation; decorators transparently convert them into reactive nodes. No external DSLs or configuration files required.
 
 ### Runtime Dependency Tracking
 
@@ -293,7 +293,7 @@ When state changes, we mark nodes dirty but don't recompute eagerly. This avoids
 
 ### Deterministic Computation
 
-Talos guarantees reproducible results across serialization, deserialization, and recomputation:
+Calyxos guarantees reproducible results across serialization, deserialization, and recomputation:
 - Only `@stored` values are persisted; derived values are always recomputed from scratch
 - Same stored values + same code = identical results, every time
 - No silent state corruption from partial invalidation or missed updates
@@ -324,7 +324,7 @@ Talos includes comprehensive utilities designed specifically for machine learnin
 Perfect for I/O-bound operations like LLM API calls and data loading:
 
 ```python
-from talos import async_fn
+from calyxos import async_fn
 
 class DataPipeline:
     @async_fn
@@ -354,7 +354,7 @@ result = await pipeline.process_data()
 Understand and optimize your computation graphs with built-in profiling:
 
 ```python
-from talos.utils.profiler import Profiler
+from calyxos.utils.profiler import Profiler
 
 profiler = Profiler(model)
 
@@ -378,7 +378,7 @@ profiler.print_profile_report()
 Content-hash-based caching for numpy and PyTorch tensors:
 
 ```python
-from talos.ml import TensorMemoizer, BatchProcessor, TensorNodeAnalyzer
+from calyxos.ml import TensorMemoizer, BatchProcessor, TensorNodeAnalyzer
 
 class Model:
     def __init__(self):
@@ -417,7 +417,7 @@ batching_hints = analyzer.suggest_batching_opportunities()
 Analyze within-instance computation parallelization and identify bottlenecks:
 
 ```python
-from talos.utils.distributed import DistributedExecutor
+from calyxos.utils.distributed import DistributedExecutor
 
 executor = DistributedExecutor(data_processor, workers=4)
 
@@ -451,7 +451,7 @@ print(f"Theoretical speedup: {summary['estimated_speedup']:.1f}x")
 Integrate with autodiff frameworks to track which stored values participate in loss computation:
 
 ```python
-from talos.utils.gradient_tracking import GradientTracker
+from calyxos.utils.gradient_tracking import GradientTracker
 import torch
 
 class Model:
@@ -537,7 +537,7 @@ Shows:
 ## Architecture
 
 ```
-src/talos/
+src/calyxos/
 ├── core/
 │   ├── decorator.py       # @fn, @stored decorators
 │   ├── async_support.py   # @async_fn decorator for async methods
@@ -615,15 +615,15 @@ Quality assurance:
 - **Code style**: ruff linting for consistency
 - **Coverage**: 85%+ on core modules, 100% on public APIs
 
-## When NOT to Use Talos
+## When NOT to Use Calyxos
 
-Talos is purpose-built for ML/LLM pipelines. Consider alternatives if:
+Calyxos is purpose-built for ML/LLM pipelines. Consider alternatives if:
 
 1. **Dependencies are static and known upfront**: If your computation graph structure is fixed at design time and never changes, the overhead of runtime tracking is wasted. A functional pipeline may be simpler.
 
-2. **You need multi-process or multi-machine distribution**: Talos analyzes parallelization opportunities but doesn't orchestrate cross-process execution. If you need Dask/Ray-level distributed scheduling, look elsewhere.
+2. **You need multi-process or multi-machine distribution**: Calyxos analyzes parallelization opportunities but doesn't orchestrate cross-process execution. If you need Dask/Ray-level distributed scheduling, look elsewhere.
 
-3. **You need multi-tenant isolation**: Talos assumes single-tenant, single-process workloads. If you need shared caches or isolation guarantees for concurrent users, you'll need additional infrastructure.
+3. **You need multi-tenant isolation**: Calyxos assumes single-tenant, single-process workloads. If you need shared caches or isolation guarantees for concurrent users, you'll need additional infrastructure.
 
 4. **Real-time systems with timing guarantees**: Lazy evaluation is the opposite of predictable latency. If you need guaranteed response times, avoid frameworks with deferred computation.
 
@@ -633,13 +633,13 @@ Talos is purpose-built for ML/LLM pipelines. Consider alternatives if:
 
 1. **Not for real-time systems**: Lazy evaluation means some operations are deferred until access. Timing guarantees are not provided.
 
-2. **Determinism assumption**: Talos assumes that methods with the same arguments always return the same result. Side effects or external state changes can break this assumption.
+2. **Determinism assumption**: Calyxos assumes that methods with the same arguments always return the same result. Side effects or external state changes can break this assumption.
 
 3. **Shallow copying in persistence**: The default storage backends (SQLite, JSON) serialize values directly. Complex, nested objects may require custom serialization logic.
 
 4. **No distributed graphs**: Each object's graph is independent and local to a single Python process. Cross-process or distributed computation is not supported.
 
-5. **Python-only**: Talos is a Python library. There is no C extension or compiled component for performance-critical sections.
+5. **Python-only**: Calyxos is a Python library. There is no C extension or compiled component for performance-critical sections.
 
 ## Contributing
 
@@ -657,7 +657,7 @@ MIT License. See LICENSE file for details.
 
 ## Acknowledgments
 
-Talos is inspired by:
+Calyxos is inspired by:
 - Reactive programming frameworks (RxPy, Reactor)
 - Computational spreadsheets (Excel, VisiCalc)
 - Incremental computation systems (Inc)

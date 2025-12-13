@@ -9,7 +9,7 @@ If you discover a security vulnerability in Talos, please report it responsibly.
 **For critical vulnerabilities (e.g., arbitrary code execution, authentication bypass):**
 
 Please open a private GitHub security advisory at:
-https://github.com/krish-shahh/talos/security/advisories
+https://github.com/krish-shahh/calyxos/security/advisories
 
 Or email with details about:
 - Description of the vulnerability
@@ -108,8 +108,8 @@ Talos follows security best practices from:
 ## Contact
 
 For security questions or concerns:
-- GitHub Issues: https://github.com/krish-shahh/talos/issues
-- GitHub Security Advisory: https://github.com/krish-shahh/talos/security/advisories
+- GitHub Issues: https://github.com/krish-shahh/calyxos/issues
+- GitHub Security Advisory: https://github.com/krish-shahh/calyxos/security/advisories
 
 ---
 
