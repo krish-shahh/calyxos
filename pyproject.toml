@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "talos"
+name = "talos-ml"
 version = "0.1.0"
 description = "Reactive object computation framework with memoized, dependency-aware nodes"
 readme = "README.md"

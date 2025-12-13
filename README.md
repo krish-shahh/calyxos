@@ -48,7 +48,7 @@ Talos is a Python framework for building complex, stateful domain models where c
 ## Installation
 
 ```bash
-pip install talos
+pip install talos-ml
 ```
 
 Or for development:
