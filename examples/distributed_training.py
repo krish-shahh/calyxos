@@ -16,9 +16,9 @@ except ImportError:
     print("Install it with: pip install numpy")
     exit(1)
 
-from talos import fn, stored
-from talos.utils.distributed import DistributedExecutor
-from talos.utils.profiler import Profiler
+from calyxos import fn, stored
+from calyxos.utils.distributed import DistributedExecutor
+from calyxos.utils.profiler import Profiler
 
 
 class DistributedDataProcessor:

@@ -2,8 +2,8 @@
 
 from typing import Any, TypeVar
 
-from talos.core.decorator import get_graph
-from talos.storage.backend import StorageBackend
+from calyxos.core.decorator import get_graph
+from calyxos.storage.backend import StorageBackend
 
 T = TypeVar("T")
 

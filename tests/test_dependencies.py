@@ -1,7 +1,7 @@
 """Tests for dependency tracking and graph construction."""
 
-from talos import fn, stored
-from talos.core.decorator import get_graph, set_stored
+from calyxos import fn, stored
+from calyxos.core.decorator import get_graph, set_stored
 
 
 class TestDependencyTracking:

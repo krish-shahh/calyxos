@@ -84,7 +84,7 @@ All development dependencies are from trusted, widely-used projects.
 
 ### For Contributors
 
-- Use `mypy` with strict mode: `mypy src/talos/`
+- Use `mypy` with strict mode: `mypy src/calyxos/`
 - Run tests: `pytest tests/`
 - Lint code: `ruff check src/`
 - Don't introduce new dependencies without discussion

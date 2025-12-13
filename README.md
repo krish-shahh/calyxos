@@ -542,7 +542,7 @@ src/calyxos/
 │   ├── decorator.py       # @fn, @stored decorators
 │   ├── async_support.py   # @async_fn decorator for async methods
 │   ├── markers.py         # Stored marker class
-│   ├── introspection.py   # enable_dir(), get_talos_methods()
+│   ├── introspection.py   # enable_dir(), get_calyxos_methods()
 │   └── persistence.py     # save/load utilities
 ├── graph/
 │   ├── node.py            # Node representation
@@ -599,7 +599,7 @@ python -m pytest tests/ -v
 Coverage report:
 
 ```bash
-python -m pytest tests/ --cov=talos --cov-report=html
+python -m pytest tests/ --cov=calyxos --cov-report=html
 ```
 
 The test suite includes 38+ tests covering:

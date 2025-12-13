@@ -3,8 +3,8 @@
 import json
 from typing import Any, Callable
 
-from talos.core.decorator import get_graph
-from talos.graph.node import NodeType
+from calyxos.core.decorator import get_graph
+from calyxos.graph.node import NodeType
 
 
 class NodeExecutionPlan:

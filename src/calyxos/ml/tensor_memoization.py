@@ -14,8 +14,8 @@ try:
 except ImportError:
     np = None  # type: ignore
 
-from talos.core.decorator import get_graph
-from talos.graph.node import NodeType
+from calyxos.core.decorator import get_graph
+from calyxos.graph.node import NodeType
 
 
 def _tensor_content_hash(tensor: Any) -> str:

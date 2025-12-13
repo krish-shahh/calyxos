@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from talos.core.decorator import get_graph
-from talos.graph.node import NodeType
+from calyxos.core.decorator import get_graph
+from calyxos.graph.node import NodeType
 
 
 def enable_dir(obj: Any) -> None:
@@ -14,7 +14,7 @@ def enable_dir(obj: Any) -> None:
     Talos-managed methods (@fn and @stored decorators).
 
     Usage:
-        from talos import fn, stored, enable_dir
+        from calyxos import fn, stored, enable_dir
 
         class MyModel:
             @fn
@@ -27,7 +27,7 @@ def enable_dir(obj: Any) -> None:
     """
     original_dir = obj.__dir__ if hasattr(obj, "__dir__") else lambda: object.__dir__(obj)
 
-    def talos_dir() -> list[str]:
+    def calyxos_dir() -> list[str]:
         """Enhanced dir() that includes Talos-managed methods."""
         # Get the original dir() listing
         items = set(original_dir())
@@ -41,10 +41,10 @@ def enable_dir(obj: Any) -> None:
 
     # Bind the new __dir__ method to the object
     # Note: we're dynamically setting __dir__, which is technically allowed
-    setattr(obj, "__dir__", talos_dir)
+    setattr(obj, "__dir__", calyxos_dir)
 
 
-def get_talos_methods(obj: Any) -> dict[str, dict[str, Any]]:
+def get_calyxos_methods(obj: Any) -> dict[str, dict[str, Any]]:
     """
     Get detailed information about all Talos-managed methods on an object.
 

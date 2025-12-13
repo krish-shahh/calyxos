@@ -3,9 +3,9 @@
 import tempfile
 from pathlib import Path
 
-from talos import JSONStorage, SQLiteStorage, fn, stored
-from talos.core.decorator import get_graph, set_stored
-from talos.core.persistence import load_object, save_object
+from calyxos import JSONStorage, SQLiteStorage, fn, stored
+from calyxos.core.decorator import get_graph, set_stored
+from calyxos.core.persistence import load_object, save_object
 
 
 class TestSQLiteStorage:
@@ -38,7 +38,7 @@ class TestSQLiteStorage:
             # Load into new instance with the SAME object id key
             # (In real usage, you'd use a UUID or identifier, not Python id())
             account2 = Account()
-            account2._talos_override_id = account_id  # Use same ID as original
+            account2._calyxos_override_id = account_id  # Use same ID as original
             load_object(account2, backend)
 
             assert account2.balance() == 250.0
@@ -75,7 +75,7 @@ class TestSQLiteStorage:
 
             # Load into new instance with same ID
             portfolio2 = Portfolio()
-            portfolio2._talos_override_id = portfolio_id
+            portfolio2._calyxos_override_id = portfolio_id
             load_object(portfolio2, backend)
 
             assert portfolio2.cash() == 2000.0
@@ -150,7 +150,7 @@ class TestJSONStorage:
             save_object(account, backend)
 
             account2 = Account()
-            account2._talos_override_id = account_id
+            account2._calyxos_override_id = account_id
             load_object(account2, backend)
 
             assert account2.balance() == 500.0
@@ -202,8 +202,8 @@ class TestJSONStorage:
 
             c1_loaded = Counter()
             c2_loaded = Counter()
-            c1_loaded._talos_override_id = c1_id
-            c2_loaded._talos_override_id = c2_id
+            c1_loaded._calyxos_override_id = c1_id
+            c2_loaded._calyxos_override_id = c2_id
 
             load_object(c1_loaded, backend)
             load_object(c2_loaded, backend)
@@ -244,7 +244,7 @@ class TestPersistenceRoundtrip:
 
             # Load into fresh instance with same ID
             model2 = Model()
-            model2._talos_override_id = model_id
+            model2._calyxos_override_id = model_id
             load_object(model2, backend)
 
             # Stored value should be restored
@@ -285,7 +285,7 @@ class TestPersistenceRoundtrip:
             save_object(model, backend)
 
             model2 = Model()
-            model2._talos_override_id = model_id
+            model2._calyxos_override_id = model_id
             load_object(model2, backend)
 
             graph = get_graph(model2)

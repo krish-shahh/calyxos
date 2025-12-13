@@ -4,8 +4,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from talos.core.decorator import get_graph
-from talos.graph.node import NodeType
+from calyxos.core.decorator import get_graph
+from calyxos.graph.node import NodeType
 
 
 @dataclass

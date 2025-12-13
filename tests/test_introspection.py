@@ -1,12 +1,12 @@
 """Tests for introspection utilities."""
 
-from talos import enable_dir, fn, get_talos_methods, list_computed_methods, list_stored_methods, stored
+from calyxos import enable_dir, fn, get_calyxos_methods, list_computed_methods, list_stored_methods, stored
 
 
 class TestDirSupport:
     """Test __dir__ patching for Talos objects."""
 
-    def test_enable_dir_includes_talos_methods(self) -> None:
+    def test_enable_dir_includes_calyxos_methods(self) -> None:
         """Test that enable_dir() adds Talos methods to dir()."""
 
         class Model:
@@ -56,10 +56,10 @@ class TestDirSupport:
 
 
 class TestGetTalosMethods:
-    """Test get_talos_methods() introspection."""
+    """Test get_calyxos_methods() introspection."""
 
-    def test_get_talos_methods_returns_dict(self) -> None:
-        """Test that get_talos_methods returns method info."""
+    def test_get_calyxos_methods_returns_dict(self) -> None:
+        """Test that get_calyxos_methods returns method info."""
 
         class Model:
             @stored
@@ -74,7 +74,7 @@ class TestGetTalosMethods:
         _ = obj.stored_val()
         _ = obj.computed_val()
 
-        methods = get_talos_methods(obj)
+        methods = get_calyxos_methods(obj)
 
         assert "stored_val" in methods
         assert "computed_val" in methods

@@ -11,7 +11,7 @@ import asyncio
 import json
 from typing import Any
 
-from talos import fn, stored
+from calyxos import fn, stored
 
 
 class LLMPipeline:
@@ -34,7 +34,7 @@ class LLMPipeline:
         )
 
         # View optimization hints
-        from talos.utils.profiler import Profiler
+        from calyxos.utils.profiler import Profiler
         profiler = Profiler(pipeline)
         profiler.print_profile_report()
     """
@@ -300,14 +300,14 @@ if __name__ == "__main__":
 
     # Example 6: Profiling
     print("\n6. Performance profile...")
-    from talos.utils.profiler import Profiler
+    from calyxos.utils.profiler import Profiler
 
     profiler = Profiler(pipeline)
     print(f"   Profiling data: {profiler.get_all_profiles().keys()}")
 
     # Example 7: Graph introspection
     print("\n7. Graph inspection...")
-    from talos import list_computed_methods, list_stored_methods
+    from calyxos import list_computed_methods, list_stored_methods
 
     stored = list_stored_methods(pipeline)
     computed = list_computed_methods(pipeline)

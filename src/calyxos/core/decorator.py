@@ -5,9 +5,9 @@ import hashlib
 from collections.abc import Callable
 from typing import Any, TypeVar, cast
 
-from talos.graph.graph import ComputationGraph
-from talos.graph.node import NodeType
-from talos.tracking.context import get_current_frame, record_node_access
+from calyxos.graph.graph import ComputationGraph
+from calyxos.graph.node import NodeType
+from calyxos.tracking.context import get_current_frame, record_node_access
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -18,8 +18,8 @@ _graphs: dict[int, ComputationGraph] = {}
 def get_graph(obj: Any) -> ComputationGraph:
     """Get or create the computation graph for an object."""
     # Check if object has a custom id override (for testing/persistence)
-    if hasattr(obj, "_talos_override_id"):
-        obj_id = obj._talos_override_id
+    if hasattr(obj, "_calyxos_override_id"):
+        obj_id = obj._calyxos_override_id
     else:
         obj_id = id(obj)
 
@@ -74,8 +74,8 @@ def fn(func: F) -> F:
         graph = get_graph(self)
 
         # Use the same ID as the graph (with override support)
-        if hasattr(self, "_talos_override_id"):
-            obj_id = self._talos_override_id
+        if hasattr(self, "_calyxos_override_id"):
+            obj_id = self._calyxos_override_id
         else:
             obj_id = id(self)
 
@@ -115,13 +115,13 @@ def stored(func: F) -> F:
     @functools.wraps(func)
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         # Delayed import to avoid circular dependency
-        from talos.core.persistence import get_loaded_stored_value
+        from calyxos.core.persistence import get_loaded_stored_value
 
         # Get the computation graph for this object
         graph = get_graph(self)
         # Use the same ID as the graph (with override support)
-        if hasattr(self, "_talos_override_id"):
-            obj_id = self._talos_override_id
+        if hasattr(self, "_calyxos_override_id"):
+            obj_id = self._calyxos_override_id
         else:
             obj_id = id(self)
 

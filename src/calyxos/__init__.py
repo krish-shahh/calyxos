@@ -2,34 +2,34 @@
 Talos: Reactive object computation framework with memoized, dependency-aware nodes.
 
 A framework that transforms methods on domain objects into memoized, dependency-aware
-nodes within an instance-scoped computation graph. Methods decorated with @talos.fn are
+nodes within an instance-scoped computation graph. Methods decorated with @calyxos.fn are
 evaluated lazily and cached, with Talos recording runtime execution dependencies to
 construct a directed acyclic graph that reflects actual method calls.
 """
 
-from talos.core.async_support import async_fn
-from talos.core.decorator import clear_graph, fn, stored
-from talos.core.introspection import (
+from calyxos.core.async_support import async_fn
+from calyxos.core.decorator import clear_graph, fn, stored
+from calyxos.core.introspection import (
     enable_dir,
-    get_talos_methods,
+    get_calyxos_methods,
     list_computed_methods,
     list_stored_methods,
 )
-from talos.core.markers import Stored
-from talos.graph.graph import ComputationGraph
-from talos.graph.node import Node
-from talos.ml.tensor_memoization import (
+from calyxos.core.markers import Stored
+from calyxos.graph.graph import ComputationGraph
+from calyxos.graph.node import Node
+from calyxos.ml.tensor_memoization import (
     BatchProcessor,
     TensorMemoizer,
     TensorNodeAnalyzer,
 )
-from talos.storage.backend import StorageBackend
-from talos.storage.json_storage import JSONStorage
-from talos.storage.sqlite import SQLiteStorage
-from talos.utils.debug import GraphDebugger
-from talos.utils.distributed import DistributedExecutor, NodeExecutionPlan
-from talos.utils.gradient_tracking import GradientTracker, enable_autograd_tracking
-from talos.utils.profiler import Profiler
+from calyxos.storage.backend import StorageBackend
+from calyxos.storage.json_storage import JSONStorage
+from calyxos.storage.sqlite import SQLiteStorage
+from calyxos.utils.debug import GraphDebugger
+from calyxos.utils.distributed import DistributedExecutor, NodeExecutionPlan
+from calyxos.utils.gradient_tracking import GradientTracker, enable_autograd_tracking
+from calyxos.utils.profiler import Profiler
 
 __version__ = "0.1.0"
 
@@ -47,7 +47,7 @@ __all__ = [
     "Stored",
     # Introspection
     "enable_dir",
-    "get_talos_methods",
+    "get_calyxos_methods",
     "list_computed_methods",
     "list_stored_methods",
     # ML/Tensor utilities

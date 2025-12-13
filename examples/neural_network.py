@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from talos import fn, stored
+from calyxos import fn, stored
 
 
 class SimpleNeuralNetwork:
@@ -219,7 +219,7 @@ class SimpleNeuralNetwork:
             gradients: Dictionary of gradients for each parameter
             learning_rate: Learning rate for parameter update
         """
-        from talos.core.decorator import get_graph
+        from calyxos.core.decorator import get_graph
 
         # Update parameters directly
         for param_name, grad in gradients.items():
@@ -343,7 +343,7 @@ if __name__ == "__main__":
 
     # Example 5: Parameter update invalidates cache
     print("\n5. Updating parameters (invalidates cache)...")
-    from talos.core.decorator import get_graph
+    from calyxos.core.decorator import get_graph
 
     graph = get_graph(model)
     before_update = graph.get_or_create_node(
@@ -365,7 +365,7 @@ if __name__ == "__main__":
 
     # Example 6: Graph inspection
     print("\n6. Graph inspection...")
-    from talos import list_computed_methods, list_stored_methods
+    from calyxos import list_computed_methods, list_stored_methods
 
     stored_methods = list_stored_methods(model)
     computed_methods = list_computed_methods(model)

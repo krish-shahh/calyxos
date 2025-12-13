@@ -4,8 +4,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from talos.graph.node import Node, NodeType
-from talos.tracking.context import (
+from calyxos.graph.node import Node, NodeType
+from calyxos.tracking.context import (
     pop_frame,
     push_frame,
 )

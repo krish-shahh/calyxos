@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Developer Tools
 - GraphDebugger for computation graph introspection
 - Graph statistics and recomputation tracing
-- Introspection utilities (enable_dir, get_talos_methods, list_stored_methods)
+- Introspection utilities (enable_dir, get_calyxos_methods, list_stored_methods)
 - Comprehensive docstrings and type hints (mypy strict mode)
 
 #### Documentation

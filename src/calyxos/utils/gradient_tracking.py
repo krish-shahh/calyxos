@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from talos.core.decorator import get_graph
+from calyxos.core.decorator import get_graph
 
 
 class GradientTracker:
@@ -14,8 +14,8 @@ class GradientTracker:
 
     Usage:
         import torch
-        from talos import fn, stored
-        from talos.utils.gradient_tracking import GradientTracker
+        from calyxos import fn, stored
+        from calyxos.utils.gradient_tracking import GradientTracker
 
         class Model:
             def __init__(self):

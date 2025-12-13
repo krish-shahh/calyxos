@@ -24,7 +24,7 @@ class SQLiteStorage:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS talos_stored_values (
+                CREATE TABLE IF NOT EXISTS calyxos_stored_values (
                     object_id INTEGER PRIMARY KEY,
                     stored_values TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -41,7 +41,7 @@ class SQLiteStorage:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
-                INSERT INTO talos_stored_values (object_id, stored_values, updated_at)
+                INSERT INTO calyxos_stored_values (object_id, stored_values, updated_at)
                 VALUES (?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(object_id) DO UPDATE SET
                     stored_values = excluded.stored_values,
@@ -55,7 +55,7 @@ class SQLiteStorage:
         """Load stored values for an object."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT stored_values FROM talos_stored_values WHERE object_id = ?",
+                "SELECT stored_values FROM calyxos_stored_values WHERE object_id = ?",
                 (object_id,),
             )
             row = cursor.fetchone()
@@ -69,21 +69,21 @@ class SQLiteStorage:
     def delete(self, object_id: int) -> None:
         """Delete stored values for an object."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("DELETE FROM talos_stored_values WHERE object_id = ?", (object_id,))
+            conn.execute("DELETE FROM calyxos_stored_values WHERE object_id = ?", (object_id,))
             conn.commit()
 
     def exists(self, object_id: int) -> bool:
         """Check if stored values exist for an object."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT 1 FROM talos_stored_values WHERE object_id = ?", (object_id,)
+                "SELECT 1 FROM calyxos_stored_values WHERE object_id = ?", (object_id,)
             )
             return cursor.fetchone() is not None
 
     def clear_all(self) -> None:
         """Clear all stored values (for testing)."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("DELETE FROM talos_stored_values")
+            conn.execute("DELETE FROM calyxos_stored_values")
             conn.commit()
 
     def close(self) -> None:

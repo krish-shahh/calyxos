@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 # Context variable to track the current evaluation stack
 _evaluation_stack: contextvars.ContextVar[list["EvaluationFrame"]] = contextvars.ContextVar(
-    "talos_evaluation_stack", default=[]
+    "calyxos_evaluation_stack", default=[]
 )
 
 
