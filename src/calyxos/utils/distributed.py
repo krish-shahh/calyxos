@@ -30,7 +30,7 @@ class NodeExecutionPlan:
 
 class DistributedExecutor:
     """
-    Coordinate distributed execution of Talos nodes.
+    Coordinate distributed execution of CalyxOS nodes.
 
     Enables:
     - Parallel evaluation of independent nodes

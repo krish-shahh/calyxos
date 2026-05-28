@@ -1,4 +1,4 @@
-"""Distributed training example with Talos.
+"""Distributed training example with CalyxOS.
 
 Demonstrates:
 - Using DistributedExecutor to parallelize training
@@ -24,7 +24,7 @@ from calyxos.utils.profiler import Profiler
 class DistributedDataProcessor:
     """Data processing pipeline that can be parallelized across workers.
 
-    Shows how Talos can automatically identify parallelization opportunities
+    Shows how CalyxOS can automatically identify parallelization opportunities
     in a data processing pipeline.
 
     Example usage:

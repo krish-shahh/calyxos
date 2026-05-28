@@ -1,9 +1,13 @@
 """Node representation in the computation graph."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+from calyxos.core.flags import NodeFlag
 
 
 class NodeType(Enum):
@@ -23,6 +27,9 @@ class Node:
     node_type: NodeType
     compute_fn: Callable[[], Any]
 
+    # Node flags (CAN_SET, CAN_OVERRIDE, STORED)
+    flags: NodeFlag = NodeFlag.NONE
+
     # Cached value
     value: Any = None
     is_valid: bool = False
@@ -34,6 +41,13 @@ class Node:
     # For debug/trace
     compute_count: int = 0
     last_recompute_reason: str | None = None
+
+    # Reverse propagation callback (set via @node(get_changes=...))
+    get_changes_fn: Callable[..., Any] | None = None
+
+    def has_flag(self, flag: NodeFlag) -> bool:
+        """Check if this node has the given flag."""
+        return bool(self.flags & flag)
 
     def __hash__(self) -> int:
         """Hash based on node identity."""

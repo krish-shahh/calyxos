@@ -1,1 +1,1 @@
-"""Runtime dependency tracking for Talos."""
+"""Runtime dependency tracking for CalyxOS."""

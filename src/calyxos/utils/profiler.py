@@ -1,4 +1,4 @@
-"""Performance profiling and optimization hints for Talos graphs."""
+"""Performance profiling and optimization hints for CalyxOS graphs."""
 
 import time
 from dataclasses import dataclass, field
@@ -37,7 +37,7 @@ class NodeProfile:
 
 
 class Profiler:
-    """Profile execution time and cache effectiveness of Talos nodes."""
+    """Profile execution time and cache effectiveness of CalyxOS nodes."""
 
     def __init__(self, obj: Any) -> None:
         """Initialize profiler for an object."""

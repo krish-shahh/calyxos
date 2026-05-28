@@ -1,0 +1,54 @@
+direction: down
+
+title: Contexts vs Layers {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+# Context side
+context_side: Context {
+  style.fill: "#e8f4fd"
+
+  enter: "Enter context" { shape: step }
+  override: "Override node value" { shape: step }
+  compute: "Dependents recompute\nwith override" { shape: step }
+  exit: "Exit context" { shape: step; style.fill: "#ffcccc" }
+  revert: "All overrides reverted\nComputed state discarded" {
+    shape: step
+    style.fill: "#ffcccc"
+    style.stroke-dash: 5
+  }
+
+  enter -> override -> compute -> exit -> revert
+}
+
+# Layer side
+layer_side: Layer {
+  style.fill: "#f0fde8"
+
+  enter_l: "Enter layer" { shape: step }
+  override_l: "Override / set_value" { shape: step }
+  compute_l: "Dependents recompute\nwith override" { shape: step }
+  exit_l: "Exit layer" { shape: step; style.fill: "#ccffcc" }
+  snapshot: "State snapshotted\nOriginal restored" {
+    shape: step
+    style.fill: "#ccffcc"
+  }
+  reenter: "Re-enter same layer" { shape: step }
+  cached: "Snapshot restored\nNo recomputation!" {
+    shape: step
+    style.fill: "#ccffcc"
+    style.stroke-dash: 5
+  }
+
+  enter_l -> override_l -> compute_l -> exit_l -> snapshot
+  snapshot -> reenter -> cached
+}
+
+# Comparison
+context_side -> layer_side: "Key difference:\nLayers preserve state" {
+  style.stroke-dash: 3
+  style.stroke: "#999"
+}

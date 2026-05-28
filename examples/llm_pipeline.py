@@ -1,4 +1,4 @@
-"""LLM pipeline example showing real-world Talos usage.
+"""LLM pipeline example showing real-world CalyxOS usage.
 
 Demonstrates:
 - Async I/O for API calls with built-in memoization

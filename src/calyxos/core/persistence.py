@@ -1,4 +1,4 @@
-"""Persistence utilities for Talos objects."""
+"""Persistence utilities for CalyxOS objects."""
 
 from typing import Any, TypeVar
 
@@ -13,12 +13,12 @@ _loaded_values: dict[int, dict[str, Any]] = {}
 
 def save_object(obj: Any, backend: StorageBackend) -> None:
     """
-    Save the stored state of a Talos object to the backend.
+    Save the stored state of a CalyxOS object to the backend.
 
     Only stored nodes are persisted; derived values are recomputed on load.
 
     Args:
-        obj: The Talos-managed object to save
+        obj: The CalyxOS-managed object to save
         backend: The storage backend to use
     """
     graph = get_graph(obj)
@@ -32,14 +32,14 @@ def save_object(obj: Any, backend: StorageBackend) -> None:
 
 def load_object(obj: T, backend: StorageBackend) -> T:
     """
-    Load the stored state of a Talos object from the backend.
+    Load the stored state of a CalyxOS object from the backend.
 
     Restores stored nodes and rebuilds derived values lazily.
     Stores loaded values in a global cache that stored nodes will check
     on their first access.
 
     Args:
-        obj: The Talos-managed object to load into
+        obj: The CalyxOS-managed object to load into
         backend: The storage backend to use
 
     Returns:

@@ -1,1 +1,1 @@
-"""Utilities and debugging tools for Talos."""
+"""Utilities and debugging tools for CalyxOS."""

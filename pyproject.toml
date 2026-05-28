@@ -4,15 +4,26 @@ build-backend = "hatchling.build"
 
 [project]
 name = "calyxos"
-version = "0.1.1"
-description = "Reactive object computation framework with memoized, dependency-aware nodes"
+version = "0.2.0"
+description = "Reactive dependency graph computation engine with incremental recomputation, contexts, layers, and cross-object tracking"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Krish Shah"}
 ]
-keywords = ["reactive", "computation", "memoization", "dag", "dependency-tracking", "ml", "llm"]
+keywords = [
+    "reactive",
+    "incremental",
+    "computation-graph",
+    "memoization",
+    "dependency-tracking",
+    "dag",
+    "what-if-analysis",
+    "sensitivity-analysis",
+    "financial-modeling",
+    "ml",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -33,12 +44,16 @@ Issues = "https://github.com/krish-shahh/calyxos/issues"
 Documentation = "https://github.com/krish-shahh/calyxos/blob/main/README.md"
 
 [project.optional-dependencies]
+viz = [
+    "graphviz>=0.20",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "mypy>=1.5.0",
     "ruff>=0.1.0",
     "black>=23.9.0",
+    "graphviz>=0.20",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Talos, please report it responsibly. We appreciate your efforts to disclose the issue to us first before any public disclosure.
+If you discover a security vulnerability in CalyxOS, please report it responsibly. We appreciate your efforts to disclose the issue to us first before any public disclosure.
 
 ### How to Report
 
@@ -27,7 +27,7 @@ Or email with details about:
 
 ### What We Protect Against
 
-Talos is designed with security in mind:
+CalyxOS is designed with security in mind:
 
 - **SQL Injection:** All database operations use parameterized queries
 - **Unsafe Deserialization:** Only JSON is used (no pickle/eval)
@@ -38,7 +38,7 @@ Talos is designed with security in mind:
 
 ### What We Don't Protect Against
 
-Talos is **not** designed to:
+CalyxOS is **not** designed to:
 
 - Protect secrets or credentials (use environment variables or secret management systems)
 - Prevent side-channel attacks on cached values
@@ -47,17 +47,17 @@ Talos is **not** designed to:
 
 ### Secure Usage
 
-To use Talos securely:
+To use CalyxOS securely:
 
 1. **Don't cache sensitive data** - Avoid using @fn on methods that compute with secrets
-2. **Isolate Talos objects** - Keep them within a single trusted process
+2. **Isolate CalyxOS objects** - Keep them within a single trusted process
 3. **Use secure storage** - Store persistence files with appropriate file permissions
 4. **Validate inputs** - Validate all external inputs before computation
-5. **Run in trusted environments** - Execute Talos code only in trusted environments
+5. **Run in trusted environments** - Execute CalyxOS code only in trusted environments
 
 ## Security Audit
 
-Talos undergoes regular security audits. The most recent audit:
+CalyxOS undergoes regular security audits. The most recent audit:
 
 - **Date:** December 13, 2024
 - **Status:** ✅ Approved for release
@@ -68,7 +68,7 @@ Talos undergoes regular security audits. The most recent audit:
 
 ## Dependencies
 
-Talos has **zero production dependencies**, significantly reducing security risk.
+CalyxOS has **zero production dependencies**, significantly reducing security risk.
 
 ### Development Dependencies (Not in Production)
 
@@ -92,14 +92,14 @@ All development dependencies are from trusted, widely-used projects.
 
 ### For Users
 
-- Keep Talos updated to the latest version
+- Keep CalyxOS updated to the latest version
 - Review the CHANGELOG for security fixes
 - Use official releases from PyPI (not development versions)
 - Report any suspicious behavior
 
 ## Compliance
 
-Talos follows security best practices from:
+CalyxOS follows security best practices from:
 
 - OWASP Top 10 prevention guidelines
 - Python secure coding practices

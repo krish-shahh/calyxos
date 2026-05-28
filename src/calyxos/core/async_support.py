@@ -1,4 +1,4 @@
-"""Async/await support for Talos computed methods."""
+"""Async/await support for CalyxOS computed methods."""
 
 import asyncio
 import functools

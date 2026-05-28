@@ -1,1 +1,1 @@
-"""Graph and node management for Talos."""
+"""Graph and node management for CalyxOS."""

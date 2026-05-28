@@ -1,1 +1,1 @@
-"""Core Talos components."""
+"""Core CalyxOS components."""

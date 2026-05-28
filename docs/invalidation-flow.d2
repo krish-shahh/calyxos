@@ -1,0 +1,64 @@
+direction: down
+
+title: Invalidation Flow {
+  shape: text
+  near: top-center
+  style.font-size: 20
+  style.bold: true
+}
+
+set_value: "set_value(obj, 'x', 42)" {
+  shape: step
+  style.fill: "#ffcccc"
+}
+
+check_reverse: "Has get_changes?" {
+  shape: diamond
+  style.fill: "#ffffcc"
+}
+
+reverse_prop: "Call get_changes()\nApply NodeChange upstream" {
+  shape: step
+  style.fill: "#ffccff"
+}
+
+validate_flags: "Check CAN_SET / STORED flag" {
+  shape: step
+  style.fill: "#ffffcc"
+}
+
+update_node: "node.value = 42\nnode.is_valid = True" {
+  shape: step
+  style.fill: "#ccffcc"
+}
+
+invalidate_bfs: "BFS: mark all\nparent nodes invalid" {
+  shape: step
+  style.fill: "#cce5ff"
+}
+
+cross_object: "CrossObjectRegistry:\npropagate to remote graphs" {
+  shape: step
+  style.fill: "#e5ccff"
+}
+
+reassert: "Re-assert node validity\n(starting node stays valid)" {
+  shape: step
+  style.fill: "#ccffcc"
+}
+
+lazy: "Dependents recompute\nlazily on next access" {
+  shape: step
+  style.fill: "#f0f0f0"
+  style.stroke-dash: 5
+}
+
+set_value -> check_reverse
+check_reverse -> reverse_prop: yes
+check_reverse -> validate_flags: no
+reverse_prop -> set_value: recursive
+validate_flags -> update_node
+update_node -> invalidate_bfs
+invalidate_bfs -> cross_object
+cross_object -> reassert
+reassert -> lazy

@@ -1,0 +1,57 @@
+direction: right
+
+title: CalyxOS Architecture {
+  shape: text
+  near: top-center
+  style.font-size: 24
+  style.bold: true
+}
+
+# Core Layer
+core: Core {
+  style.fill: "#e8f4fd"
+  decorator: "@node / @fn / @stored\ndecorator.py"
+  flags: "NodeFlag\nflags.py"
+  reverse: "NodeChange\nreverse.py"
+  persistence: "save / load\npersistence.py"
+  introspection: "is_overridden / get_node_flags\nintrospection.py"
+}
+
+# Graph Layer
+graph: Graph Engine {
+  style.fill: "#f0fde8"
+  computation: "ComputationGraph\ngraph.py"
+  node: "Node\nnode.py"
+  context: "GraphContext\ncontext.py"
+  layer: "Layer\nlayer.py"
+  registry: "CrossObjectRegistry\nregistry.py"
+}
+
+# Tracking Layer
+tracking: Tracking {
+  style.fill: "#fdf0e8"
+  evalstack: "EvaluationFrame\ncontext.py"
+  disconnect: "disconnect()\ndisconnect.py"
+}
+
+# Storage Layer
+storage: Storage {
+  style.fill: "#f0e8fd"
+  backend: "StorageBackend\nbackend.py"
+  sqlite: "SQLiteStorage"
+  json: "JSONStorage"
+}
+
+# Flows
+core.decorator -> graph.computation: creates/evaluates nodes
+core.decorator -> tracking.evalstack: push/pop frames
+graph.computation -> graph.node: manages
+graph.computation -> graph.context: override stack
+graph.computation -> graph.layer: snapshot/restore
+graph.computation -> graph.registry: cross-object edges
+tracking.disconnect -> tracking.evalstack: suppresses
+core.persistence -> storage.backend: save/load
+storage.backend -> storage.sqlite
+storage.backend -> storage.json
+core.reverse -> core.decorator: reverse set_value
+core.flags -> graph.node: flags field

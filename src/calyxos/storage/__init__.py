@@ -1,1 +1,1 @@
-"""Storage backends for Talos persistence."""
+"""Storage backends for CalyxOS persistence."""

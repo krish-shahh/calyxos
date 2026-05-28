@@ -8,7 +8,7 @@ class StorageBackend(Protocol):
     Protocol for storage backends.
 
     A storage backend is responsible for persisting and restoring the stored
-    nodes of a Talos-managed object. Only stored nodes are persisted; derived
+    nodes of a CalyxOS-managed object. Only stored nodes are persisted; derived
     values are always recomputed on demand.
     """
 

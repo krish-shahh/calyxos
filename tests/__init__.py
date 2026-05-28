@@ -1,1 +1,1 @@
-"""Talos test suite."""
+"""CalyxOS test suite."""

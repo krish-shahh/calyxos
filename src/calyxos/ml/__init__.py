@@ -1,4 +1,4 @@
-"""ML/LLM utilities for Talos.
+"""ML/LLM utilities for CalyxOS.
 
 High-performance computing support for machine learning and scientific computing.
 """

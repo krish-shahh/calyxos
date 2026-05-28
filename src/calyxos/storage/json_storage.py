@@ -1,4 +1,4 @@
-"""Simple JSON file storage backend for Talos."""
+"""Simple JSON file storage backend for CalyxOS."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ from typing import Any
 
 
 class JSONStorage:
-    """Simple JSON file-based storage backend for Talos."""
+    """Simple JSON file-based storage backend for CalyxOS."""
 
     def __init__(self, dir_path: str | Path) -> None:
         """

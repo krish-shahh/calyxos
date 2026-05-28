@@ -4,10 +4,10 @@ from calyxos import enable_dir, fn, get_calyxos_methods, list_computed_methods, 
 
 
 class TestDirSupport:
-    """Test __dir__ patching for Talos objects."""
+    """Test __dir__ patching for CalyxOS objects."""
 
     def test_enable_dir_includes_calyxos_methods(self) -> None:
-        """Test that enable_dir() adds Talos methods to dir()."""
+        """Test that enable_dir() adds CalyxOS methods to dir()."""
 
         class Model:
             @stored
@@ -22,7 +22,7 @@ class TestDirSupport:
         _ = obj.stored_value()
         _ = obj.computed_value()
 
-        # Before enable_dir, Talos methods might not be in dir()
+        # Before enable_dir, CalyxOS methods might not be in dir()
         dir_before = set(dir(obj))
 
         # After enable_dir, they should be
@@ -55,7 +55,7 @@ class TestDirSupport:
         assert result == sorted(result)
 
 
-class TestGetTalosMethods:
+class TestGetCalyxOSMethods:
     """Test get_calyxos_methods() introspection."""
 
     def test_get_calyxos_methods_returns_dict(self) -> None:
