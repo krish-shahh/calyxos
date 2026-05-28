@@ -1,4 +1,4 @@
-"""Distributed training example with CalyxOS.
+"""Distributed training example with calyxos.
 
 Demonstrates:
 - Using DistributedExecutor to parallelize training
@@ -24,7 +24,7 @@ from calyxos.utils.profiler import Profiler
 class DistributedDataProcessor:
     """Data processing pipeline that can be parallelized across workers.
 
-    Shows how CalyxOS can automatically identify parallelization opportunities
+    Shows how calyxos can automatically identify parallelization opportunities
     in a data processing pipeline.
 
     Example usage:

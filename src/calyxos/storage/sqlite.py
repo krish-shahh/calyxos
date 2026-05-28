@@ -1,4 +1,4 @@
-"""SQLite storage backend for CalyxOS."""
+"""SQLite storage backend for calyxos."""
 
 import json
 import sqlite3
@@ -7,7 +7,7 @@ from typing import Any
 
 
 class SQLiteStorage:
-    """SQLite-based storage backend for persisting CalyxOS object state."""
+    """SQLite-based storage backend for persisting calyxos object state."""
 
     def __init__(self, db_path: str | Path) -> None:
         """

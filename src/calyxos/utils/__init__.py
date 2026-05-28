@@ -1,1 +1,1 @@
-"""Utilities and debugging tools for CalyxOS."""
+"""Utilities and debugging tools for calyxos."""

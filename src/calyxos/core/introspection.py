@@ -1,4 +1,4 @@
-"""Introspection utilities for CalyxOS objects."""
+"""Introspection utilities for calyxos objects."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ from calyxos.graph.node import NodeType
 
 def enable_dir(obj: Any) -> None:
     """
-    Enable enhanced dir() support for a CalyxOS-managed object.
+    Enable enhanced dir() support for a calyxos-managed object.
 
     This patches the object's __dir__ method to show all available
-    CalyxOS-managed methods (@fn and @stored decorators).
+    calyxos-managed methods (@fn and @stored decorators).
 
     Usage:
         from calyxos import fn, stored, enable_dir
@@ -31,11 +31,11 @@ def enable_dir(obj: Any) -> None:
     original_dir = obj.__dir__ if hasattr(obj, "__dir__") else lambda: object.__dir__(obj)
 
     def calyxos_dir() -> list[str]:
-        """Enhanced dir() that includes CalyxOS-managed methods."""
+        """Enhanced dir() that includes calyxos-managed methods."""
         # Get the original dir() listing
         items = set(original_dir())
 
-        # Add all CalyxOS-managed methods from the graph
+        # Add all calyxos-managed methods from the graph
         graph = get_graph(obj)
         for node in graph.get_all_nodes():
             items.add(node.method_name)
@@ -49,7 +49,7 @@ def enable_dir(obj: Any) -> None:
 
 def get_calyxos_methods(obj: Any) -> dict[str, dict[str, Any]]:
     """
-    Get detailed information about all CalyxOS-managed methods on an object.
+    Get detailed information about all calyxos-managed methods on an object.
 
     Returns a dict mapping method names to info dicts containing:
     - type: "stored" or "derived"
@@ -72,7 +72,7 @@ def get_calyxos_methods(obj: Any) -> dict[str, dict[str, Any]]:
 
 
 def list_stored_methods(obj: Any) -> list[str]:
-    """Get list of all @stored methods on a CalyxOS object."""
+    """Get list of all @stored methods on a calyxos object."""
     graph = get_graph(obj)
     return sorted(
         node.method_name
@@ -82,7 +82,7 @@ def list_stored_methods(obj: Any) -> list[str]:
 
 
 def list_computed_methods(obj: Any) -> list[str]:
-    """Get list of all @fn (computed) methods on a CalyxOS object."""
+    """Get list of all @fn (computed) methods on a calyxos object."""
     graph = get_graph(obj)
     return sorted(
         node.method_name

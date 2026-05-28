@@ -1,4 +1,4 @@
-"""ML/LLM utilities for CalyxOS.
+"""ML/LLM utilities for calyxos.
 
 High-performance computing support for machine learning and scientific computing.
 """

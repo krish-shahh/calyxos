@@ -1,1 +1,1 @@
-"""CalyxOS test suite."""
+"""calyxos test suite."""

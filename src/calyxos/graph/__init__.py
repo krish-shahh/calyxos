@@ -1,1 +1,1 @@
-"""Graph and node management for CalyxOS."""
+"""Graph and node management for calyxos."""

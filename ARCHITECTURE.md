@@ -1,10 +1,10 @@
-# CalyxOS Architecture
+# calyxos Architecture
 
-This document describes the system architecture of CalyxOS v0.2.0.
+This document describes the system architecture of calyxos v0.2.0.
 
 ## Overview
 
-CalyxOS is a reactive dependency graph computation engine for Python. It transforms methods into memoized, dependency-aware nodes that cache results, track dependencies at runtime, and selectively recompute only affected computations when inputs change.
+calyxos is a reactive dependency graph computation engine for Python. It transforms methods into memoized, dependency-aware nodes that cache results, track dependencies at runtime, and selectively recompute only affected computations when inputs change.
 
 **Core principles:**
 - Zero runtime dependencies (pure Python stdlib)
@@ -15,7 +15,7 @@ CalyxOS is a reactive dependency graph computation engine for Python. It transfo
 
 ## Architecture Diagram
 
-![CalyxOS Architecture](docs/architecture.png)
+![calyxos Architecture](docs/architecture.png)
 
 Architecture diagrams are written in [D2](https://d2lang.com/) and located in `docs/`:
 

@@ -1,4 +1,4 @@
-"""Async/await support for CalyxOS computed methods."""
+"""Async/await support for calyxos computed methods."""
 
 import asyncio
 import functools

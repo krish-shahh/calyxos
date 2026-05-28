@@ -1,9 +1,9 @@
 """
-CalyxOS: Reactive object computation framework with memoized, dependency-aware nodes.
+calyxos: Reactive object computation framework with memoized, dependency-aware nodes.
 
 A framework that transforms methods on domain objects into memoized, dependency-aware
 nodes within an instance-scoped computation graph. Methods decorated with @calyxos.fn are
-evaluated lazily and cached, with CalyxOS recording runtime execution dependencies to
+evaluated lazily and cached, with calyxos recording runtime execution dependencies to
 construct a directed acyclic graph that reflects actual method calls.
 """
 

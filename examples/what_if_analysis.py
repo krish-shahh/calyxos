@@ -1,4 +1,4 @@
-"""CalyxOS What-If Analysis — Contexts
+"""calyxos What-If Analysis — Contexts
 
 Demonstrates:
 - graph.context() for temporary overrides

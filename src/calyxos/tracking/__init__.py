@@ -1,1 +1,1 @@
-"""Runtime dependency tracking for CalyxOS."""
+"""Runtime dependency tracking for calyxos."""

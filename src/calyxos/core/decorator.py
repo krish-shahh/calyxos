@@ -1,4 +1,4 @@
-"""Decorators for CalyxOS reactive computation nodes."""
+"""Decorators for calyxos reactive computation nodes."""
 
 from __future__ import annotations
 

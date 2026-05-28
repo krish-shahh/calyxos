@@ -1,4 +1,4 @@
-"""CalyxOS Sensitivity Analysis — Layers
+"""calyxos Sensitivity Analysis — Layers
 
 Demonstrates:
 - Layers for persistent computation state

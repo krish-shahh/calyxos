@@ -7,7 +7,7 @@ from calyxos.core.decorator import get_graph
 
 class GradientTracker:
     """
-    Track gradient flow through the CalyxOS computation graph.
+    Track gradient flow through the calyxos computation graph.
 
     Enables integration with PyTorch, JAX, and other autodiff libraries
     by recording which stored values participate in loss computation.
@@ -100,7 +100,7 @@ def enable_autograd_tracking(obj: Any, framework: str = "pytorch") -> GradientTr
     Enable automatic differentiation tracking for an object.
 
     Args:
-        obj: CalyxOS-managed object
+        obj: calyxos-managed object
         framework: "pytorch", "jax", or "tensorflow"
 
     Returns:
@@ -121,7 +121,7 @@ def enable_autograd_tracking(obj: Any, framework: str = "pytorch") -> GradientTr
 def _enable_pytorch_tracking(obj: Any, tracker: GradientTracker) -> None:
     """Hook into PyTorch's autograd graph."""
     # Placeholder: In a full implementation, this would register backward hooks
-    # on tensors to track gradient flow through CalyxOS nodes
+    # on tensors to track gradient flow through calyxos nodes
     pass
 
 

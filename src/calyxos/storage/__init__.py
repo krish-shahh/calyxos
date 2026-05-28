@@ -1,1 +1,1 @@
-"""Storage backends for CalyxOS persistence."""
+"""Storage backends for calyxos persistence."""

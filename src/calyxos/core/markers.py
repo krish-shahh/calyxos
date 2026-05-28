@@ -1,4 +1,4 @@
-"""Markers for stored state in CalyxOS."""
+"""Markers for stored state in calyxos."""
 
 from typing import Any, TypeVar
 

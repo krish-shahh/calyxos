@@ -1,4 +1,4 @@
-"""Neural network training example with CalyxOS.
+"""Neural network training example with calyxos.
 
 Demonstrates:
 - Storing model parameters and configuration
@@ -15,7 +15,7 @@ from calyxos import fn, stored
 
 
 class SimpleNeuralNetwork:
-    """Simple feedforward neural network with CalyxOS integration.
+    """Simple feedforward neural network with calyxos integration.
 
     Shows how to structure an ML model for automatic dependency tracking
     and selective recomputation.
@@ -234,7 +234,7 @@ class SimpleNeuralNetwork:
 
 
 class ConvolutionalNetwork:
-    """Simple CNN example (simplified for CalyxOS integration).
+    """Simple CNN example (simplified for calyxos integration).
 
     Demonstrates handling of higher-dimensional data and learned filters.
     """

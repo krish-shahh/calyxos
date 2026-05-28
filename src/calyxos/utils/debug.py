@@ -1,4 +1,4 @@
-"""Debug utilities for inspecting and tracing CalyxOS graphs."""
+"""Debug utilities for inspecting and tracing calyxos graphs."""
 
 from __future__ import annotations
 

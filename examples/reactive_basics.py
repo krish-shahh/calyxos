@@ -1,4 +1,4 @@
-"""CalyxOS Reactive Basics — Getting Started
+"""calyxos Reactive Basics — Getting Started
 
 Demonstrates:
 - @node decorator with flags (CAN_SET, STORED, CAN_OVERRIDE)

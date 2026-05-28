@@ -1,4 +1,4 @@
-"""LLM pipeline example showing real-world CalyxOS usage.
+"""LLM pipeline example showing real-world calyxos usage.
 
 Demonstrates:
 - Async I/O for API calls with built-in memoization

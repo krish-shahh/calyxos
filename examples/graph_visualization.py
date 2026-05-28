@@ -1,4 +1,4 @@
-"""CalyxOS Graph Visualization — Graphviz
+"""calyxos Graph Visualization — Graphviz
 
 Demonstrates rendering computation graphs to PNG/SVG using graphviz.
 Requires: pip install graphviz (and the Graphviz system package).

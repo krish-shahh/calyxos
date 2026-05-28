@@ -1,4 +1,4 @@
-"""CalyxOS Financial Instrument — Cross-Object Dependencies & Reverse Propagation
+"""calyxos Financial Instrument — Cross-Object Dependencies & Reverse Propagation
 
 Demonstrates:
 - Cross-object dependencies (Instrument depends on Market)

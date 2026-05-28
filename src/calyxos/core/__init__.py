@@ -1,1 +1,1 @@
-"""Core CalyxOS components."""
+"""Core calyxos components."""

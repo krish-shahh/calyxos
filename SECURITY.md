@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in CalyxOS, please report it responsibly. We appreciate your efforts to disclose the issue to us first before any public disclosure.
+If you discover a security vulnerability in calyxos, please report it responsibly. We appreciate your efforts to disclose the issue to us first before any public disclosure.
 
 ### How to Report
 
@@ -27,7 +27,7 @@ Or email with details about:
 
 ### What We Protect Against
 
-CalyxOS is designed with security in mind:
+calyxos is designed with security in mind:
 
 - **SQL Injection:** All database operations use parameterized queries
 - **Unsafe Deserialization:** Only JSON is used (no pickle/eval)
@@ -38,7 +38,7 @@ CalyxOS is designed with security in mind:
 
 ### What We Don't Protect Against
 
-CalyxOS is **not** designed to:
+calyxos is **not** designed to:
 
 - Protect secrets or credentials (use environment variables or secret management systems)
 - Prevent side-channel attacks on cached values
@@ -47,17 +47,17 @@ CalyxOS is **not** designed to:
 
 ### Secure Usage
 
-To use CalyxOS securely:
+To use calyxos securely:
 
 1. **Don't cache sensitive data** - Avoid using @fn on methods that compute with secrets
-2. **Isolate CalyxOS objects** - Keep them within a single trusted process
+2. **Isolate calyxos objects** - Keep them within a single trusted process
 3. **Use secure storage** - Store persistence files with appropriate file permissions
 4. **Validate inputs** - Validate all external inputs before computation
-5. **Run in trusted environments** - Execute CalyxOS code only in trusted environments
+5. **Run in trusted environments** - Execute calyxos code only in trusted environments
 
 ## Security Audit
 
-CalyxOS undergoes regular security audits. The most recent audit:
+calyxos undergoes regular security audits. The most recent audit:
 
 - **Date:** December 13, 2024
 - **Status:** ✅ Approved for release
@@ -68,7 +68,7 @@ CalyxOS undergoes regular security audits. The most recent audit:
 
 ## Dependencies
 
-CalyxOS has **zero production dependencies**, significantly reducing security risk.
+calyxos has **zero production dependencies**, significantly reducing security risk.
 
 ### Development Dependencies (Not in Production)
 
@@ -92,14 +92,14 @@ All development dependencies are from trusted, widely-used projects.
 
 ### For Users
 
-- Keep CalyxOS updated to the latest version
+- Keep calyxos updated to the latest version
 - Review the CHANGELOG for security fixes
 - Use official releases from PyPI (not development versions)
 - Report any suspicious behavior
 
 ## Compliance
 
-CalyxOS follows security best practices from:
+calyxos follows security best practices from:
 
 - OWASP Top 10 prevention guidelines
 - Python secure coding practices

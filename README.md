@@ -1,6 +1,10 @@
-# CalyxOS
+# calyxos
 
-**A reactive dependency graph computation engine for Python.** CalyxOS turns ordinary methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed. Inspired by Jane Street's [Incremental](https://github.com/janestreet/incremental) library, built for Python's object model.
+[![PyPI version](https://img.shields.io/pypi/v/calyxos.svg)](https://pypi.org/project/calyxos/)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/calyxos.svg)](https://pypi.org/project/calyxos/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+**A reactive dependency graph computation engine for Python.** calyxos turns ordinary methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed. Inspired by Jane Street's [Incremental](https://github.com/janestreet/incremental) library, built for Python's object model.
 
 ```python
 from calyxos import node, NodeFlag, set_value, get_graph
@@ -94,7 +98,7 @@ class Pipeline:
 
 ### Lazy Invalidation
 
-When a node's value changes, CalyxOS marks all transitive dependents as invalid but does **not** recompute them eagerly. Recomputation happens lazily on next access.
+When a node's value changes, calyxos marks all transitive dependents as invalid but does **not** recompute them eagerly. Recomputation happens lazily on next access.
 
 ```python
 set_value(pipeline, "raw_data", [10, 20, 30])
@@ -154,7 +158,7 @@ with layer:
 
 ## Cross-Object Dependencies
 
-Nodes on different objects can depend on each other. CalyxOS tracks these cross-object edges and propagates invalidation across object boundaries.
+Nodes on different objects can depend on each other. calyxos tracks these cross-object edges and propagates invalidation across object boundaries.
 
 ```python
 class Market:
@@ -304,9 +308,9 @@ Implement the `StorageBackend` protocol for custom backends.
 
 ## Architecture
 
-CalyxOS is organized into four layers:
+calyxos is organized into four layers:
 
-![CalyxOS Architecture](docs/architecture.png)
+![calyxos Architecture](docs/architecture.png)
 
 D2 sources live in `docs/` — re-render with `d2 docs/architecture.d2 docs/architecture.png`.
 
@@ -407,7 +411,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-CalyxOS is inspired by:
+calyxos is inspired by:
 
 - [Jane Street Incremental](https://github.com/janestreet/incremental) — incremental computation for OCaml
 - [Salsa](https://github.com/salsa-rs/salsa) — incremental computation for Rust
