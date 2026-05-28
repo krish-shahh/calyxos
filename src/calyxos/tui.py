@@ -1,0 +1,493 @@
+"""calyxos interactive graph inspector.
+
+Usage::
+
+    from calyxos.tui import inspect
+    inspect(my_object)
+
+Or from the benchmark::
+
+    pipe = DataPipeline()
+    pipe.output()
+    inspect(pipe)
+"""
+
+from __future__ import annotations
+
+import readline  # noqa: F401 — enables arrow-key history in input()
+from typing import Any
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
+from rich import box
+
+from calyxos.core.decorator import get_graph, set_value
+from calyxos.core.flags import NodeFlag
+from calyxos.graph.node import Node, NodeType
+
+console = Console()
+
+# ── Helpers ─────────────────────────────────────────────────────────────
+
+
+def _flag_str(nd: Node) -> str:
+    parts = []
+    if nd.has_flag(NodeFlag.STORED):
+        parts.append("STORED")
+    elif nd.has_flag(NodeFlag.CAN_SET):
+        parts.append("CAN_SET")
+    if nd.has_flag(NodeFlag.CAN_OVERRIDE):
+        parts.append("CAN_OVERRIDE")
+    return ", ".join(parts) if parts else "-"
+
+
+def _val_str(val: Any, max_len: int = 40) -> str:
+    r = repr(val)
+    return r if len(r) <= max_len else r[: max_len - 3] + "..."
+
+
+def _status_str(nd: Node) -> str:
+    if nd.is_valid:
+        return "[green]valid[/]"
+    return "[red]invalid[/]"
+
+
+def _type_str(nd: Node) -> str:
+    if nd.node_type == NodeType.STORED:
+        return "[yellow]stored[/]"
+    return "[cyan]derived[/]"
+
+
+def _resolve_names(graph, keys: set) -> list[str]:
+    names = []
+    for k in keys:
+        child = graph.nodes.get(k)
+        if child is not None:
+            names.append(child.method_name)
+        else:
+            names.append(f"<{k[1]}@{k[0]}>")
+    return sorted(names)
+
+
+# ── Commands ────────────────────────────────────────────────────────────
+
+
+def cmd_graph(obj: Any, _args: str) -> None:
+    """Show all nodes in the computation graph."""
+    graph = get_graph(obj)
+    nodes = graph.get_all_nodes()
+
+    if not nodes:
+        console.print("[dim]  (empty graph — access some nodes first)[/]")
+        return
+
+    stored = sorted(
+        [n for n in nodes if n.node_type == NodeType.STORED],
+        key=lambda n: n.method_name,
+    )
+    derived = sorted(
+        [n for n in nodes if n.node_type == NodeType.DERIVED],
+        key=lambda n: n.method_name,
+    )
+
+    t = Table(
+        box=box.ROUNDED,
+        title=f"[bold]{obj.__class__.__name__}[/] — {len(nodes)} nodes",
+        title_style="",
+        show_lines=False,
+        pad_edge=False,
+    )
+    t.add_column("node", style="bold")
+    t.add_column("type", justify="center")
+    t.add_column("status", justify="center")
+    t.add_column("value", max_width=36)
+    t.add_column("computes", justify="right")
+    t.add_column("flags")
+
+    for nd in stored + derived:
+        t.add_row(
+            nd.method_name,
+            _type_str(nd),
+            _status_str(nd),
+            _val_str(nd.value),
+            str(nd.compute_count),
+            _flag_str(nd),
+        )
+
+    console.print(t)
+
+
+def cmd_node(obj: Any, args: str) -> None:
+    """Show detailed info for a single node."""
+    name = args.strip()
+    if not name:
+        console.print("[red]usage: node <name>[/]")
+        return
+
+    graph = get_graph(obj)
+    nd = graph._find_node_by_name(name)
+    if nd is None:
+        console.print(f"[red]node '{name}' not found[/]")
+        return
+
+    parents = _resolve_names(graph, nd.parents)
+    children = _resolve_names(graph, nd.children)
+
+    rows = [
+        ("name", nd.method_name),
+        ("type", nd.node_type.value),
+        ("status", "valid" if nd.is_valid else "INVALID"),
+        ("value", _val_str(nd.value, 60)),
+        ("flags", _flag_str(nd)),
+        ("computes", str(nd.compute_count)),
+        ("reason", nd.last_recompute_reason or "-"),
+        ("depends on", ", ".join(children) if children else "(none)"),
+        ("depended by", ", ".join(parents) if parents else "(none)"),
+    ]
+
+    t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+    t.add_column(style="dim", min_width=12)
+    t.add_column()
+    for k, v in rows:
+        t.add_row(k, str(v))
+
+    console.print(Panel(t, title=f"[bold]{name}[/]", border_style="cyan", padding=(0, 1)))
+
+
+def _node_badge(nd: Node) -> str:
+    """Render a single node as a colored badge string."""
+    if nd.node_type == NodeType.STORED or nd.has_flag(NodeFlag.CAN_SET):
+        icon = "[yellow]■[/]"
+        name_style = "bold yellow"
+    else:
+        icon = "[cyan]◆[/]"
+        name_style = "bold cyan"
+
+    if nd.is_valid:
+        status = "[green]●[/]"
+    else:
+        status = "[bold red]✗[/]"
+        name_style = "bold red"
+
+    val = _val_str(nd.value, 18)
+    return f"{icon} [{name_style}]{nd.method_name}[/] {status} [dim]{val}[/]"
+
+
+def cmd_tree(obj: Any, args: str) -> None:
+    """Show dependency tree for a node."""
+    name = args.strip()
+    if not name:
+        console.print("[red]usage: tree <name>[/]")
+        return
+
+    graph = get_graph(obj)
+    nd = graph._find_node_by_name(name)
+    if nd is None:
+        console.print(f"[red]node '{name}' not found[/]")
+        return
+
+    guide = "green" if nd.is_valid else "red"
+    rich_tree = Tree(_node_badge(nd), guide_style=guide)
+    visited: set[str] = {nd.method_name}
+
+    def _build(parent_tree: Tree, node: Node) -> None:
+        for child_key in sorted(node.children, key=lambda k: k[1]):
+            child_nd = graph.nodes.get(child_key)
+            if child_nd is None:
+                parent_tree.add(f"[dim]? {child_key[1]} (external)[/]")
+                continue
+            if child_nd.method_name in visited:
+                parent_tree.add(f"{_node_badge(child_nd)} [dim](ref)[/]")
+                continue
+            visited.add(child_nd.method_name)
+            child_guide = "green" if child_nd.is_valid else "red"
+            branch = parent_tree.add(_node_badge(child_nd), guide_style=child_guide)
+            _build(branch, child_nd)
+
+    _build(rich_tree, nd)
+    console.print(Panel(
+        rich_tree,
+        title=f"[bold]tree:[/] {name}   [yellow]■[/] input  [cyan]◆[/] derived  [green]●[/] valid  [red]✗[/] dirty",
+        border_style="dim",
+        padding=(0, 1),
+    ))
+
+
+def _compute_layers(graph: Any) -> list[list[Node]]:
+    """Topological sort into layers (inputs first, outputs last)."""
+    nodes = graph.get_all_nodes()
+    if not nodes:
+        return []
+
+    # Build name -> node map and adjacency
+    by_name: dict[str, Node] = {}
+    for nd in nodes:
+        by_name[nd.method_name] = nd
+
+    # in-degree based on children (deps). Nodes with no children = layer 0.
+    in_deg: dict[str, int] = {}
+    dependents: dict[str, list[str]] = {}
+    for nd in nodes:
+        child_names = []
+        for ck in nd.children:
+            cn = graph.nodes.get(ck)
+            if cn is not None:
+                child_names.append(cn.method_name)
+        in_deg[nd.method_name] = len(child_names)
+        for c in child_names:
+            dependents.setdefault(c, []).append(nd.method_name)
+
+    # BFS layering
+    layers: list[list[Node]] = []
+    ready = [n for n in by_name if in_deg.get(n, 0) == 0]
+    visited: set[str] = set()
+
+    while ready:
+        layer = sorted(ready)
+        layers.append([by_name[n] for n in layer])
+        visited.update(layer)
+        next_ready = []
+        for n in layer:
+            for dep in dependents.get(n, []):
+                in_deg[dep] -= 1
+                if in_deg[dep] == 0 and dep not in visited:
+                    next_ready.append(dep)
+        ready = next_ready
+
+    return layers
+
+
+def cmd_flow(obj: Any, _args: str) -> None:
+    """Show the computation graph as a layered flow diagram."""
+    graph = get_graph(obj)
+    layers = _compute_layers(graph)
+
+    if not layers:
+        console.print("[dim]  (empty graph)[/]")
+        return
+
+    lines: list[str] = []
+
+    for i, layer in enumerate(layers):
+        # Build badges for this layer
+        badges = []
+        for nd in layer:
+            if nd.node_type == NodeType.STORED or nd.has_flag(NodeFlag.CAN_SET):
+                color = "yellow"
+            elif not nd.is_valid:
+                color = "red"
+            else:
+                color = "cyan"
+
+            val = _val_str(nd.value, 12)
+            if nd.is_valid:
+                status_dot = "[green]●[/]"
+            else:
+                status_dot = "[bold red]✗[/]"
+                color = "red"
+            badges.append(f"[{color}]{nd.method_name}[/]{status_dot}[dim]={val}[/]")
+
+        # Layer label
+        if i == 0:
+            label = "inputs"
+        elif i == len(layers) - 1:
+            label = "output"
+        else:
+            label = f"layer {i}"
+
+        row = "  ".join(badges)
+        lines.append(f"  [dim]{label:>8}[/]  {row}")
+
+        # Arrow between layers
+        if i < len(layers) - 1:
+            lines.append(f"  [dim]{'':>8}  {'│':>1}[/]")
+            lines.append(f"  [dim]{'':>8}  {'▼':>1}[/]")
+
+    content = "\n".join(lines)
+    console.print(Panel(
+        content,
+        title=f"[bold]{obj.__class__.__name__}[/]  [yellow]■[/] input  [cyan]◆[/] derived  [green]●[/] valid  [red]✗[/] dirty",
+        border_style="blue",
+        padding=(1, 1),
+    ))
+
+
+def cmd_set(obj: Any, args: str) -> None:
+    """Set a node value and show what was invalidated."""
+    parts = args.strip().split(maxsplit=1)
+    if len(parts) != 2:
+        console.print("[red]usage: set <name> <value>[/]")
+        return
+
+    name, raw_val = parts
+
+    try:
+        val = eval(raw_val)  # noqa: S307 — intentional for interactive use
+    except Exception as e:
+        console.print(f"[red]bad value: {e}[/]")
+        return
+
+    graph = get_graph(obj)
+
+    # snapshot validity before
+    before = {nd.method_name: nd.is_valid for nd in graph.get_all_nodes()}
+
+    try:
+        set_value(obj, name, val)
+    except (ValueError, KeyError) as e:
+        console.print(f"[red]{e}[/]")
+        return
+
+    # find what was invalidated
+    after = {nd.method_name: nd.is_valid for nd in graph.get_all_nodes()}
+    invalidated = [n for n in after if before.get(n, True) and not after[n]]
+
+    console.print(f"[green]set {name} = {_val_str(val)}[/]")
+    if invalidated:
+        console.print(f"[yellow]invalidated:[/] {', '.join(sorted(invalidated))}")
+    else:
+        console.print("[dim]no downstream nodes invalidated[/]")
+
+
+def cmd_eval(obj: Any, args: str) -> None:
+    """Evaluate a node and show its value."""
+    name = args.strip()
+    if not name:
+        console.print("[red]usage: eval <name>[/]")
+        return
+
+    method = getattr(obj, name, None)
+    if method is None or not callable(method):
+        console.print(f"[red]'{name}' is not a method on {obj.__class__.__name__}[/]")
+        return
+
+    try:
+        result = method()
+    except Exception as e:
+        console.print(f"[red]error: {e}[/]")
+        return
+
+    console.print(f"[green]{name}() = {_val_str(result, 60)}[/]")
+
+
+def cmd_stats(obj: Any, _args: str) -> None:
+    """Show graph statistics."""
+    graph = get_graph(obj)
+    nodes = graph.get_all_nodes()
+    stored = sum(1 for n in nodes if n.node_type == NodeType.STORED)
+    derived = sum(1 for n in nodes if n.node_type == NodeType.DERIVED)
+    invalid = sum(1 for n in nodes if not n.is_valid)
+    total_computes = sum(n.compute_count for n in nodes)
+
+    t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+    t.add_column(style="dim", min_width=16)
+    t.add_column()
+    t.add_row("total nodes", str(len(nodes)))
+    t.add_row("stored", str(stored))
+    t.add_row("derived", str(derived))
+    t.add_row("invalid", f"[red]{invalid}[/]" if invalid else "0")
+    t.add_row("total computes", str(total_computes))
+
+    console.print(Panel(t, title="[bold]stats[/]", border_style="dim", padding=(0, 1)))
+
+
+def cmd_invalid(obj: Any, _args: str) -> None:
+    """List all invalid (dirty) nodes."""
+    graph = get_graph(obj)
+    invalid = [n for n in graph.get_all_nodes() if not n.is_valid]
+
+    if not invalid:
+        console.print("[green]all nodes valid[/]")
+        return
+
+    for nd in sorted(invalid, key=lambda n: n.method_name):
+        reason = nd.last_recompute_reason or "unknown"
+        console.print(f"  [red]{nd.method_name}[/]  [dim]reason: {reason}[/]")
+
+
+def cmd_help(_obj: Any, _args: str) -> None:
+    """Show available commands."""
+    t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+    t.add_column(style="bold cyan", min_width=22)
+    t.add_column(style="dim")
+    t.add_row("graph", "show all nodes")
+    t.add_row("flow", "layered DAG view")
+    t.add_row("node <name>", "inspect a node")
+    t.add_row("tree <name>", "dependency tree from a node")
+    t.add_row("set <name> <value>", "set value, show invalidation")
+    t.add_row("eval <name>", "evaluate a node")
+    t.add_row("stats", "graph statistics")
+    t.add_row("invalid", "list dirty nodes")
+    t.add_row("help", "this message")
+    t.add_row("quit / q / exit", "exit inspector")
+    console.print(Panel(t, title="[bold]commands[/]", border_style="dim", padding=(0, 1)))
+
+
+COMMANDS = {
+    "graph": cmd_graph,
+    "flow": cmd_flow,
+    "node": cmd_node,
+    "tree": cmd_tree,
+    "set": cmd_set,
+    "eval": cmd_eval,
+    "stats": cmd_stats,
+    "invalid": cmd_invalid,
+    "help": cmd_help,
+}
+
+
+# ── Main entry point ───────────────────────────────────────────────────
+
+
+def inspect(obj: Any) -> None:
+    """Drop into an interactive graph inspector for a calyxos object.
+
+    Args:
+        obj: Any object that has calyxos-decorated methods with an
+             existing computation graph (i.e., some nodes have been
+             evaluated at least once).
+    """
+    graph = get_graph(obj)
+    n_nodes = len(graph.get_all_nodes())
+
+    console.print()
+    console.print(Panel(
+        f"[bold]{obj.__class__.__name__}[/] — {n_nodes} nodes\n"
+        "[dim]type 'help' for commands, 'quit' to exit[/]",
+        title="[bold]calyxos inspector[/]",
+        border_style="blue",
+        padding=(0, 2),
+    ))
+    console.print()
+
+    # show graph overview on entry
+    cmd_graph(obj, "")
+    console.print()
+
+    while True:
+        try:
+            raw = console.input("[bold blue]calyxos>[/] ")
+        except (EOFError, KeyboardInterrupt):
+            console.print()
+            break
+
+        raw = raw.strip()
+        if not raw:
+            continue
+
+        if raw in ("quit", "q", "exit"):
+            break
+
+        parts = raw.split(maxsplit=1)
+        cmd_name = parts[0].lower()
+        cmd_args = parts[1] if len(parts) > 1 else ""
+
+        handler = COMMANDS.get(cmd_name)
+        if handler is None:
+            console.print(f"[red]unknown command: {cmd_name}[/]  (type 'help')")
+            continue
+
+        handler(obj, cmd_args)
+        console.print()

@@ -8,6 +8,7 @@ construct a directed acyclic graph that reflects actual method calls.
 """
 
 from calyxos.core.async_support import async_fn
+from calyxos.tui import inspect
 from calyxos.core.decorator import clear_graph, fn, get_graph, node, set_stored, set_value, stored
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
@@ -90,4 +91,6 @@ __all__ = [
     # Debugging
     "GraphDebugger",
     "clear_graph",
+    # TUI
+    "inspect",
 ]

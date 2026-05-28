@@ -45,6 +45,53 @@ pip install -e ".[dev]"
 
 **Requirements:** Python 3.10+. Zero runtime dependencies (stdlib only).
 
+For the interactive TUI inspector:
+
+```bash
+pip install calyxos[tui]
+```
+
+## TUI Inspector
+
+calyxos ships with a built-in terminal UI for exploring computation graphs interactively.
+
+**Run the demo** (benchmark + inspector):
+
+```bash
+calyxos demo
+```
+
+**Inspect your own objects** in code:
+
+```python
+from calyxos import node, NodeFlag, set_value, inspect
+
+class MyModel:
+    @node(NodeFlag.CAN_SET)
+    def x(self) -> float: return 10.0
+
+    @node()
+    def result(self) -> float: return self.x() ** 2
+
+m = MyModel()
+m.result()       # compute the graph
+inspect(m)       # drop into the TUI
+```
+
+**Commands** inside the TUI:
+
+| Command | What it does |
+|---------|-------------|
+| `graph` | Show all nodes with status, values, flags |
+| `flow` | Layered DAG view of the full graph |
+| `node <name>` | Inspect a single node (deps, dependents, flags) |
+| `tree <name>` | Dependency tree from a node |
+| `set <name> <value>` | Set a value, shows which nodes were invalidated |
+| `eval <name>` | Evaluate a node |
+| `stats` | Graph statistics |
+| `invalid` | List all dirty nodes |
+| `quit` | Exit |
+
 ## Core Concepts
 
 ### The `@node` Decorator

@@ -37,6 +37,9 @@ classifiers = [
 
 dependencies = []
 
+[project.scripts]
+calyxos = "calyxos.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/krish-shahh/calyxos"
 Repository = "https://github.com/krish-shahh/calyxos"
@@ -44,6 +47,9 @@ Issues = "https://github.com/krish-shahh/calyxos/issues"
 Documentation = "https://github.com/krish-shahh/calyxos/blob/main/README.md"
 
 [project.optional-dependencies]
+tui = [
+    "rich>=13.0",
+]
 viz = [
     "graphviz>=0.20",
 ]
