@@ -40,7 +40,7 @@ from calyxos.utils.distributed import DistributedExecutor, NodeExecutionPlan
 from calyxos.utils.gradient_tracking import GradientTracker, enable_autograd_tracking
 from calyxos.utils.profiler import Profiler
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     # Core decorators
