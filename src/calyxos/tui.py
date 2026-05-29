@@ -781,12 +781,64 @@ def mlx_cmd_stats(g: Any, _args: str) -> None:
     console.print(Panel(t, title="[bold]stats[/]", border_style="dim", padding=(0, 1)))
 
 
+def mlx_cmd_tree(g: Any, args: str) -> None:
+    """Show dependency tree for an MLX node."""
+    from calyxos.ml.mlx_graph import MLXVar, MLXNode
+
+    name = args.strip()
+    if not name:
+        console.print("[red]usage: tree <name>[/]")
+        return
+
+    target = g._nodes.get(name)
+    if target is None:
+        console.print(f"[red]node '{name}' not found[/]")
+        return
+
+    def _badge(item: Any) -> str:
+        if isinstance(item, MLXVar):
+            return f"[yellow]■[/] [bold yellow]{item.name}[/] [green]●[/] [dim]{_mx_shape_str(item.value)}[/]"
+        stale = item.is_stale
+        status = "[bold red]✗[/]" if stale else "[green]●[/]"
+        name_style = "bold red" if stale else "bold cyan"
+        shape = _mx_shape_str(item._cached) if item._cached is not _UNSET else "?"
+        return f"[cyan]◆[/] [{name_style}]{item.name}[/] {status} [dim]{shape}[/]"
+
+    # Need the _UNSET sentinel
+    from calyxos.ml.mlx_graph import _UNSET
+
+    guide = "red" if target.is_stale else "green"
+    rich_tree = Tree(_badge(target), guide_style=guide)
+    visited: set[str] = {target.name}
+
+    def _build(parent_tree: Tree, node: Any) -> None:
+        if not isinstance(node, MLXNode):
+            return
+        for inp in node._inputs:
+            if inp.name in visited:
+                parent_tree.add(f"{_badge(inp)} [dim](ref)[/]")
+                continue
+            visited.add(inp.name)
+            child_guide = "red" if (isinstance(inp, MLXNode) and inp.is_stale) else "green"
+            branch = parent_tree.add(_badge(inp), guide_style=child_guide)
+            _build(branch, inp)
+
+    _build(rich_tree, target)
+    console.print(Panel(
+        rich_tree,
+        title=f"[bold]tree:[/] {name}   [yellow]■[/] var  [cyan]◆[/] node  [green]●[/] fresh  [red]✗[/] stale",
+        border_style="dim",
+        padding=(0, 1),
+    ))
+
+
 def mlx_cmd_help(_g: Any, _args: str) -> None:
     t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
     t.add_column(style="bold cyan", min_width=30)
     t.add_column(style="dim")
     t.add_row("graph", "show all vars and nodes")
     t.add_row("flow", "layered DAG view")
+    t.add_row("tree <name>", "dependency tree from a node")
     t.add_row("node <name>", "inspect a var or node")
     t.add_row("set <var> random [shape...]", "set var, show staleness cascade")
     t.add_row("eval [name]", "evaluate node(s) with mx.eval()")
@@ -800,6 +852,7 @@ def mlx_cmd_help(_g: Any, _args: str) -> None:
 MLX_COMMANDS = {
     "graph": mlx_cmd_graph,
     "flow": mlx_cmd_flow,
+    "tree": mlx_cmd_tree,
     "node": mlx_cmd_node,
     "set": mlx_cmd_set,
     "eval": mlx_cmd_eval,

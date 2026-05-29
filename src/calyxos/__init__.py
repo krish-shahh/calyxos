@@ -8,7 +8,6 @@ construct a directed acyclic graph that reflects actual method calls.
 """
 
 from calyxos.core.async_support import async_fn
-from calyxos.tui import inspect, inspect_mlx
 from calyxos.core.decorator import clear_graph, fn, get_graph, node, set_stored, set_value, stored
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
@@ -47,6 +46,18 @@ from calyxos.utils.gradient_tracking import GradientTracker, enable_autograd_tra
 from calyxos.utils.profiler import Profiler
 
 __version__ = "0.2.3"
+
+
+def inspect(obj):
+    """Drop into the interactive TUI inspector. Requires ``pip install calyxos[tui]``."""
+    from calyxos.tui import inspect as _inspect
+    return _inspect(obj)
+
+
+def inspect_mlx(g):
+    """Drop into the MLX TUI inspector. Requires ``pip install calyxos[tui]``."""
+    from calyxos.tui import inspect_mlx as _inspect_mlx
+    return _inspect_mlx(g)
 
 __all__ = [
     # Core decorators
