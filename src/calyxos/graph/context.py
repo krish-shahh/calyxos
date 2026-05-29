@@ -50,12 +50,15 @@ class GraphContext:
 
     def __init__(self, graph: ComputationGraph) -> None:
         self._graph = graph
+        self._active = False
 
     def __enter__(self) -> GraphContext:
         self._graph._push_context_frame()
+        self._active = True
         return self
 
     def __exit__(self, *exc: object) -> bool:
+        self._active = False
         self._graph._pop_context_frame()
         return False
 
@@ -75,5 +78,13 @@ class GraphContext:
             method_name: Name of the node method.
             value: The override value.
             args_hash: Argument hash for parameterised nodes (default 0).
+
+        Raises:
+            RuntimeError: If called outside the ``with`` block (context not active).
         """
+        if not self._active:
+            raise RuntimeError(
+                "Cannot call override() on an inactive context. "
+                "Use it inside the 'with graph.context() as ctx:' block."
+            )
         self._graph._set_context_override(method_name, args_hash, value)
