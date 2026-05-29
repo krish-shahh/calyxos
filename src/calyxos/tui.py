@@ -44,6 +44,8 @@ def _val_str(val: Any, max_len: int = 40) -> str:
 
 
 def _status_str(nd: Node) -> str:
+    if nd.error is not None:
+        return "[bold red]ERROR[/]"
     if nd.is_valid:
         return "[green]valid[/]"
     return "[red]invalid[/]"
@@ -130,14 +132,22 @@ def cmd_node(obj: Any, args: str) -> None:
     parents = _resolve_names(graph, nd.parents)
     children = _resolve_names(graph, nd.children)
 
+    if nd.error is not None:
+        status = f"ERROR: {nd.error!r}"
+    elif nd.is_valid:
+        status = "valid"
+    else:
+        status = "INVALID"
+
     rows = [
         ("name", nd.method_name),
         ("type", nd.node_type.value),
-        ("status", "valid" if nd.is_valid else "INVALID"),
+        ("status", status),
         ("value", _val_str(nd.value, 60)),
         ("flags", _flag_str(nd)),
         ("computes", str(nd.compute_count)),
         ("reason", nd.last_recompute_reason or "-"),
+        ("ttl", f"{nd._ttl}s" if nd._ttl is not None else "-"),
         ("depends on", ", ".join(children) if children else "(none)"),
         ("depended by", ", ".join(parents) if parents else "(none)"),
     ]
@@ -160,7 +170,10 @@ def _node_badge(nd: Node) -> str:
         icon = "[cyan]◆[/]"
         name_style = "bold cyan"
 
-    if nd.is_valid:
+    if nd.error is not None:
+        status = "[bold red]⚠[/]"
+        name_style = "bold red"
+    elif nd.is_valid:
         status = "[green]●[/]"
     else:
         status = "[bold red]✗[/]"
@@ -374,6 +387,7 @@ def cmd_stats(obj: Any, _args: str) -> None:
     stored = sum(1 for n in nodes if n.node_type == NodeType.STORED)
     derived = sum(1 for n in nodes if n.node_type == NodeType.DERIVED)
     invalid = sum(1 for n in nodes if not n.is_valid)
+    errored = sum(1 for n in nodes if n.error is not None)
     total_computes = sum(n.compute_count for n in nodes)
 
     t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
@@ -383,6 +397,7 @@ def cmd_stats(obj: Any, _args: str) -> None:
     t.add_row("stored", str(stored))
     t.add_row("derived", str(derived))
     t.add_row("invalid", f"[red]{invalid}[/]" if invalid else "0")
+    t.add_row("errored", f"[bold red]{errored}[/]" if errored else "0")
     t.add_row("total computes", str(total_computes))
 
     console.print(Panel(t, title="[bold]stats[/]", border_style="dim", padding=(0, 1)))
@@ -402,6 +417,37 @@ def cmd_invalid(obj: Any, _args: str) -> None:
         console.print(f"  [red]{nd.method_name}[/]  [dim]reason: {reason}[/]")
 
 
+def cmd_errors(obj: Any, _args: str) -> None:
+    """List all nodes in an error state."""
+    graph = get_graph(obj)
+    errored = graph.get_error_nodes()
+
+    if not errored:
+        console.print("[green]no errors[/]")
+        return
+
+    for nd in sorted(errored, key=lambda n: n.method_name):
+        console.print(f"  [bold red]{nd.method_name}[/]  {nd.error!r}")
+
+
+def cmd_retry(obj: Any, _args: str) -> None:
+    """Clear error state on all errored nodes so they recompute on next access."""
+    graph = get_graph(obj)
+    errored = graph.get_error_nodes()
+    if not errored:
+        console.print("[dim]no errors to retry[/]")
+        return
+    graph.retry_errors()
+    console.print(f"[green]cleared errors on {len(errored)} node(s)[/]")
+
+
+def cmd_gc(obj: Any, _args: str) -> None:
+    """Garbage-collect orphaned per-element map nodes."""
+    graph = get_graph(obj)
+    removed = graph.gc_orphan_map_nodes()
+    console.print(f"[green]removed {removed} orphaned map node(s)[/]")
+
+
 def cmd_help(_obj: Any, _args: str) -> None:
     """Show available commands."""
     t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
@@ -415,6 +461,9 @@ def cmd_help(_obj: Any, _args: str) -> None:
     t.add_row("eval <name>", "evaluate a node")
     t.add_row("stats", "graph statistics")
     t.add_row("invalid", "list dirty nodes")
+    t.add_row("errors", "list errored nodes")
+    t.add_row("retry", "clear errors for recomputation")
+    t.add_row("gc", "remove orphaned map nodes")
     t.add_row("help", "this message")
     t.add_row("quit / q / exit", "exit inspector")
     console.print(Panel(t, title="[bold]commands[/]", border_style="dim", padding=(0, 1)))
@@ -429,6 +478,9 @@ COMMANDS = {
     "eval": cmd_eval,
     "stats": cmd_stats,
     "invalid": cmd_invalid,
+    "errors": cmd_errors,
+    "retry": cmd_retry,
+    "gc": cmd_gc,
     "help": cmd_help,
 }
 

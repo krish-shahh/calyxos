@@ -87,12 +87,15 @@ inspect(m)       # drop into the TUI
 |---------|-------------|
 | `graph` | Show all nodes with status, values, flags |
 | `flow` | Layered DAG view of the full graph |
-| `node <name>` | Inspect a single node (deps, dependents, flags) |
+| `node <name>` | Inspect a single node (deps, dependents, flags, TTL, error) |
 | `tree <name>` | Dependency tree from a node |
 | `set <name> <value>` | Set a value, shows which nodes were invalidated |
 | `eval <name>` | Evaluate a node |
-| `stats` | Graph statistics |
+| `stats` | Graph statistics (includes error count) |
 | `invalid` | List all dirty nodes |
+| `errors` | List all errored nodes |
+| `retry` | Clear error state for recomputation |
+| `gc` | Remove orphaned per-element map nodes |
 | `quit` | Exit |
 
 ## MLX Backend (Apple Silicon)
