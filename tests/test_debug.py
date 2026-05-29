@@ -132,9 +132,8 @@ class TestNodeTracking:
             def __init__(self) -> None:
                 self.call_count = 0
 
-            @fn
+            @stored
             def base_value(self) -> int:
-                self.call_count += 1
                 return 10
 
             @fn
@@ -153,9 +152,8 @@ class TestNodeTracking:
         _ = counter.get_value()
         assert get_value_node.compute_count == 1
 
-        # After invalidation and recompute - invalidate base_value
-        base_node = next(n for n in graph.get_all_nodes() if n.method_name == "base_value")
-        graph.invalidate_node("base_value", base_node.args_hash)
+        # After value change and recompute
+        set_stored(counter, "base_value", 20)
 
         _ = counter.get_value()
         assert get_value_node.compute_count == 2

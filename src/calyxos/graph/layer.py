@@ -74,6 +74,7 @@ class Layer:
         if self._active:
             nd.value = value
             nd.is_valid = True
+            nd._value_changed = True
             # Invalidate dependents
             for parent_key in list(nd.parents):
                 parent_nd = self._graph.nodes.get(parent_key)

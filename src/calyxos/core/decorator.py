@@ -317,6 +317,14 @@ def set_value(
                 f"Use @node(NodeFlag.CAN_SET) or @node(NodeFlag.STORED) to allow setting."
             )
 
+    # Value-equality guard: skip if the new value matches the existing cached value
+    if target_node.is_valid:
+        try:
+            if target_node.value is value or target_node.value == value:
+                return
+        except Exception:
+            pass
+
     # Update the value
     target_node.value = value
     target_node.is_valid = True
@@ -334,6 +342,100 @@ def set_value(
     # node invalid, but we just explicitly set its value.
     target_node.value = value
     target_node.is_valid = True
+
+
+# ---------------------------------------------------------------------------
+# @map_node: per-element fan-out over a collection
+# ---------------------------------------------------------------------------
+
+
+def map_node(
+    source: str,
+    *flags: NodeFlag,
+) -> Callable[[F], F]:
+    """Decorator that maps a function over each element of a collection node.
+
+    Creates per-element nodes in the dependency graph so that when the
+    source collection changes, only the affected elements are recomputed.
+
+    Args:
+        source: Name of the method that returns the source collection.
+        *flags: Optional ``NodeFlag`` values forwarded to the per-element nodes.
+
+    Usage::
+
+        class Pipeline:
+            @node(NodeFlag.STORED)
+            def documents(self) -> list[str]:
+                return ["a", "b", "c"]
+
+            @map_node("documents")
+            def upper(self, doc: str) -> str:
+                return doc.upper()
+
+        p = Pipeline()
+        p.upper()  # ["A", "B", "C"]
+    """
+    combined = NodeFlag.NONE
+    for f in flags:
+        combined |= f
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+            graph = get_graph(self)
+
+            if hasattr(self, "_calyxos_override_id"):
+                obj_id = self._calyxos_override_id
+            else:
+                obj_id = id(self)
+
+            orch_hash = _compute_args_hash((self,) + args, kwargs)
+
+            def compute_orchestrated() -> list[Any]:
+                # Access the source collection (records dependency)
+                collection = getattr(self, source)()
+
+                results: list[Any] = []
+                for element in collection:
+                    elem_hash = _compute_args_hash((self, element), {})
+
+                    elem_nd = graph.get_or_create_node(
+                        method_name=f"_map_{func.__name__}",
+                        args_hash=elem_hash,
+                        node_type=NodeType.DERIVED,
+                        compute_fn=lambda e=element: func(self, e),
+                        flags=combined,
+                    )
+
+                    # Record element-node access in the orchestrator's frame
+                    record_node_access(obj_id, f"_map_{func.__name__}", elem_hash)
+
+                    results.append(graph.evaluate_node(elem_nd))
+
+                return results
+
+            orch_nd = graph.get_or_create_node(
+                method_name=func.__name__,
+                args_hash=orch_hash,
+                node_type=NodeType.DERIVED,
+                compute_fn=compute_orchestrated,
+                flags=combined,
+            )
+
+            # Record orchestrator access in the parent frame (if any)
+            current_frame = get_current_frame()
+            if current_frame is not None:
+                record_node_access(obj_id, func.__name__, orch_hash)
+
+            return graph.evaluate_node(orch_nd)
+
+        wrapper._calyxos_flags = combined  # type: ignore[attr-defined]
+        wrapper._calyxos_node = True  # type: ignore[attr-defined]
+        wrapper._calyxos_map = True  # type: ignore[attr-defined]
+        return cast(F, wrapper)
+
+    return decorator
 
 
 def clear_graph(obj: Any) -> None:

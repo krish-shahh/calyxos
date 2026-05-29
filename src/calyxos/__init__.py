@@ -8,7 +8,7 @@ construct a directed acyclic graph that reflects actual method calls.
 """
 
 from calyxos.core.async_support import async_fn
-from calyxos.core.decorator import clear_graph, fn, get_graph, node, set_stored, set_value, stored
+from calyxos.core.decorator import clear_graph, fn, get_graph, map_node, node, set_stored, set_value, stored
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
 from calyxos.core.introspection import (
@@ -45,7 +45,7 @@ from calyxos.utils.distributed import DistributedExecutor, NodeExecutionPlan
 from calyxos.utils.gradient_tracking import GradientTracker, enable_autograd_tracking
 from calyxos.utils.profiler import Profiler
 
-__version__ = "0.2.5"
+__version__ = "0.3.0"
 
 
 def inspect(obj):
@@ -74,6 +74,8 @@ __all__ = [
     "set_stored",
     "set_value",
     "get_graph",
+    # Map primitive
+    "map_node",
     # Graph and storage
     "ComputationGraph",
     "Node",

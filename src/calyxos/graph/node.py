@@ -42,6 +42,11 @@ class Node:
     compute_count: int = 0
     last_recompute_reason: str | None = None
 
+    # Early cutoff: tracks whether the value changed on last recomputation.
+    # Set to True during invalidation (assume changed until proven otherwise),
+    # then updated after recomputation with the actual comparison result.
+    _value_changed: bool = False
+
     # Reverse propagation callback (set via @node(get_changes=...))
     get_changes_fn: Callable[..., Any] | None = None
 

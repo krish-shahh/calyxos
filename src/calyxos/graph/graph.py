@@ -97,6 +97,20 @@ class ComputationGraph:
         if node.is_valid:
             return node.value
 
+        # Early cutoff: if this node has been computed before, verify whether
+        # any input actually changed before running the (potentially expensive)
+        # compute function.  Walk the recorded children, evaluate any that are
+        # dirty, and check their _value_changed flag.
+        if node.compute_count > 0 and node.children:
+            if not self._any_child_changed(node, recursion_guard):
+                node.is_valid = True
+                node._value_changed = False
+                return node.value
+
+        # Save old value for change detection after recomputation
+        old_value = node.value
+        had_old = node.compute_count > 0
+
         # Push frame to track dependencies
         frame = push_frame(node.object_id, node.method_name, node.args_hash)
 
@@ -131,10 +145,69 @@ class ComputationGraph:
                 node.is_valid = True
                 node.compute_count += 1
 
+                # Track whether the value actually changed (for early cutoff
+                # propagation to this node's parents)
+                if had_old:
+                    try:
+                        node._value_changed = bool(result != old_value)
+                    except Exception:
+                        node._value_changed = result is not old_value
+                else:
+                    node._value_changed = False
+
             return result
         finally:
             pop_frame()
             recursion_guard.discard(key)
+
+    # ------------------------------------------------------------------
+    # Early cutoff helpers
+    # ------------------------------------------------------------------
+
+    def _any_child_changed(
+        self, node: Node, recursion_guard: set[NodeKey] | None
+    ) -> bool:
+        """Check whether any of *node*'s recorded children changed value.
+
+        For each dirty child, evaluate it first (which recursively applies
+        early cutoff).  Then inspect ``_value_changed``.  Returns ``True``
+        as soon as any child is found to have changed, so the caller knows
+        it must recompute.
+        """
+        for child_key in node.children:
+            child = self.nodes.get(child_key)
+
+            # Cross-object child — look up in the registry
+            if child is None and child_key[0] != self.object_id:
+                from calyxos.graph.registry import CrossObjectRegistry
+
+                registry = CrossObjectRegistry.get()
+                remote_graph = registry.get_graph(child_key[0])
+                if remote_graph is not None:
+                    child = remote_graph.nodes.get(child_key)
+
+            if child is None:
+                return True  # Conservative: treat missing nodes as changed
+
+            # If the child is dirty, evaluate it (may itself early-cutoff)
+            if not child.is_valid:
+                if child_key[0] == self.object_id:
+                    self.evaluate_node(child, recursion_guard)
+                else:
+                    from calyxos.graph.registry import CrossObjectRegistry
+
+                    registry = CrossObjectRegistry.get()
+                    remote_graph = registry.get_graph(child_key[0])
+                    if remote_graph is not None:
+                        remote_graph.evaluate_node(child, recursion_guard)
+                    else:
+                        return True
+
+            # After evaluation the child is valid.  Did its value change?
+            if child._value_changed:
+                return True
+
+        return False
 
     # ------------------------------------------------------------------
     # Invalidation
@@ -170,6 +243,7 @@ class ComputationGraph:
         with self._lock:
             # Invalidate this node
             node.is_valid = False
+            node._value_changed = True
             node.last_recompute_reason = reason
 
             # BFS to invalidate all downstream dependents (nodes that depend on this one)
@@ -190,6 +264,7 @@ class ComputationGraph:
 
                 if parent_node.is_valid:
                     parent_node.is_valid = False
+                    parent_node._value_changed = True
                     parent_node.last_recompute_reason = reason
                     queue.extend(parent_node.parents)
 
@@ -246,6 +321,7 @@ class ComputationGraph:
                 if nd is not None:
                     nd.value = saved_value
                     nd.is_valid = saved_valid
+                    nd._value_changed = True
 
             # Invalidate dependents of every overridden node so they pick up
             # the restored values on next access
@@ -311,6 +387,7 @@ class ComputationGraph:
             frame.overrides[key] = value
             nd.value = value
             nd.is_valid = True
+            nd._value_changed = True
 
             # Invalidate dependents so they recompute with the override
             for parent_key in list(nd.parents):
@@ -380,6 +457,7 @@ class ComputationGraph:
                     if nd is not None:
                         nd.value = val
                         nd.is_valid = valid
+                        nd._value_changed = True
 
             # Apply layer overrides
             for key, val in layer._overrides.items():
@@ -387,6 +465,7 @@ class ComputationGraph:
                 if nd is not None:
                     nd.value = val
                     nd.is_valid = True
+                    nd._value_changed = True
 
             self._layer_stack.append(layer)
 
@@ -409,6 +488,7 @@ class ComputationGraph:
                     if nd is not None:
                         nd.value = val
                         nd.is_valid = valid
+                        nd._value_changed = True
 
             # Invalidate dependents of overridden nodes
             for key in layer._overrides:
