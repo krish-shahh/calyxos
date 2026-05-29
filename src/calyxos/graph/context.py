@@ -84,7 +84,8 @@ class GraphContext:
         """
         if not self._active:
             raise RuntimeError(
-                "Cannot call override() on an inactive context. "
-                "Use it inside the 'with graph.context() as ctx:' block."
+                f"Cannot call override() on an inactive context "
+                f"(graph object_id={self._graph.object_id}). "
+                f"Use it inside the 'with graph.context() as ctx:' block."
             )
         self._graph._set_context_override(method_name, args_hash, value)
