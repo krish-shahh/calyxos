@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/calyxos.svg)](https://pypi.org/project/calyxos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-**A reactive dependency graph computation engine for Python.** calyxos turns ordinary methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed. Inspired by Jane Street's [Incremental](https://github.com/janestreet/incremental) library, built for Python's object model.
+**A reactive dependency graph computation engine for Python.** calyxos turns ordinary methods into memoized, dependency-aware nodes that automatically cache results, track dependencies at runtime, and selectively recompute only what changed. Early cutoff stops recomputation cascades when intermediate results haven't actually changed, and `@map_node` fans out computation per-element so a single document change doesn't rebuild an entire pipeline. Inspired by Jane Street's [Incremental](https://github.com/janestreet/incremental) library, built for Python's object model.
 
 ```python
 from calyxos import node, NodeFlag, set_value, get_graph
@@ -192,7 +192,58 @@ class Pipeline:
         return sum(self.processed()) / len(self.processed())
 ```
 
-### Lazy Invalidation
+### Per-Element Mapping with `@map_node`
+
+`@map_node(source)` applies a function independently to each element of a collection, creating per-element nodes in the dependency graph. When the collection changes, only new or modified elements are recomputed — unchanged elements return their cached result.
+
+```python
+from calyxos import node, NodeFlag, set_value, map_node
+
+class Pipeline:
+    @node(NodeFlag.STORED)
+    def documents(self) -> list[str]:
+        return ["doc_a", "doc_b", "doc_c"]
+
+    @map_node("documents")
+    def processed(self, doc: str) -> str:
+        return doc.upper()  # expensive per-document transform
+
+    @node()
+    def report(self) -> str:
+        return ", ".join(self.processed())
+
+p = Pipeline()
+print(p.report())  # "DOC_A, DOC_B, DOC_C"
+
+# Add a document — only "doc_d" is computed, the rest are cached
+set_value(p, "documents", ["doc_a", "doc_b", "doc_c", "doc_d"])
+print(p.report())  # "DOC_A, DOC_B, DOC_C, DOC_D"
+```
+
+Per-element nodes can depend on other nodes too. If a shared config changes, all element nodes are invalidated, but early cutoff skips elements whose result didn't actually change:
+
+```python
+class Pipeline:
+    @node(NodeFlag.STORED)
+    def multiplier(self) -> int:
+        return 2
+
+    @node(NodeFlag.STORED)
+    def numbers(self) -> list[int]:
+        return [1, 2, 3]
+
+    @map_node("numbers")
+    def scaled(self, n: int) -> int:
+        return n * self.multiplier()  # each element depends on multiplier
+
+p = Pipeline()
+print(p.scaled())  # [2, 4, 6]
+
+set_value(p, "multiplier", 10)
+print(p.scaled())  # [10, 20, 30]
+```
+
+### Lazy Invalidation & Early Cutoff
 
 When a node's value changes, calyxos marks all transitive dependents as invalid but does **not** recompute them eagerly. Recomputation happens lazily on next access.
 
@@ -201,6 +252,39 @@ set_value(pipeline, "raw_data", [10, 20, 30])
 # processed and summary are now invalid, but NOT recomputed yet
 
 pipeline.summary()  # triggers recomputation of processed, then summary
+```
+
+**Value-equality guard:** `set_value()` short-circuits when the new value matches the existing cached value (`is` identity check, then `==`). Re-setting the same value is a no-op — no invalidation cascade, no wasted work.
+
+```python
+set_value(p, "spot", 100.0)  # spot is already 100.0
+# Nothing happens — dependents remain valid and cached
+```
+
+**Early cutoff:** When a dirty node is recomputed and produces the same result as before, calyxos stops the cascade. Downstream nodes that depend on the unchanged intermediate are re-validated without running their compute functions.
+
+```python
+class Model:
+    @node(NodeFlag.CAN_SET)
+    def raw_input(self) -> int:
+        return 5
+
+    @node()
+    def clamped(self) -> int:
+        return max(0, min(10, self.raw_input()))  # clamps to [0, 10]
+
+    @node()
+    def expensive_report(self) -> str:
+        return f"value={self.clamped()}"  # only reruns if clamped changes
+
+m = Model()
+m.expensive_report()  # "value=5"
+
+set_value(m, "raw_input", 15)
+m.expensive_report()  # "value=10" — clamped changed (5→10), report recomputes
+
+set_value(m, "raw_input", 20)
+m.expensive_report()  # "value=10" — clamped unchanged (still 10), report skipped
 ```
 
 ## What-If Analysis with Contexts
@@ -444,7 +528,9 @@ src/calyxos/
 ### Key Design Decisions
 
 - **Runtime tracking over static analysis**: Dependencies are discovered by recording node accesses during execution, not by parsing AST. This handles conditional deps, loops, and polymorphism correctly.
-- **Lazy invalidation**: Changing a value marks dependents dirty but doesn't recompute. This avoids unnecessary work when results aren't immediately needed.
+- **Lazy invalidation with early cutoff**: Changing a value marks dependents dirty but doesn't recompute. On access, dirty nodes verify whether their inputs actually changed before running `compute_fn`. If no input changed, the cached value is re-validated without recomputation, and the cutoff propagates upward.
+- **Value-equality guard**: `set_value()` compares new values against cached values and short-circuits when they match, preventing invalidation cascades from no-op mutations.
+- **Per-element fan-out**: `@map_node` creates independent sub-nodes for each collection element, so changes to one element don't force recomputation of the entire collection.
 - **Instance-scoped graphs**: Each object has its own computation graph. Cross-object edges use weak references.
 - **Zero dependencies**: Core uses only Python stdlib (threading, contextvars, hashlib, dataclasses).
 
@@ -486,11 +572,13 @@ mypy src/calyxos/
 ruff check src/calyxos/
 ```
 
-The test suite includes 109 tests covering:
+The test suite includes 130 tests covering:
 
 - Core memoization and argument handling
 - Dependency tracking (conditional, diamond, cross-object)
 - Invalidation propagation (selective, lazy, cross-graph)
+- Value-equality guard and early cutoff optimization
+- `@map_node` per-element caching and dependency tracking
 - Contexts (override, revert, nesting, exception safety)
 - Layers (snapshot, restore, re-entry, independence)
 - Reverse propagation (basic, chained, recursion limit)
