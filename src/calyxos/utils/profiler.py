@@ -1,7 +1,7 @@
 """Performance profiling and optimization hints for calyxos graphs."""
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from calyxos.core.decorator import get_graph
@@ -22,14 +22,12 @@ class NodeProfile:
 
     @property
     def avg_time(self) -> float:
-        """Average execution time per compute."""
         if self.compute_count == 0:
             return 0.0
         return self.total_time / self.compute_count
 
     @property
     def cache_hit_rate(self) -> float:
-        """Fraction of accesses that were cached."""
         total_accesses = self.compute_count + self.cached_hits
         if total_accesses == 0:
             return 0.0
@@ -37,14 +35,49 @@ class NodeProfile:
 
 
 class Profiler:
-    """Profile execution time and cache effectiveness of calyxos nodes."""
+    """Profile execution time and cache effectiveness of calyxos nodes.
+
+    Use :meth:`enable` for automatic instrumentation — the profiler hooks
+    into ``evaluate_node`` so every computation and cache hit is recorded
+    without manual ``start_timer`` / ``stop_timer`` calls::
+
+        prof = Profiler(obj)
+        prof.enable()          # hook into the graph
+        obj.expensive()        # automatically timed
+        prof.print_profile_report()
+        prof.disable()         # unhook
+    """
 
     def __init__(self, obj: Any) -> None:
-        """Initialize profiler for an object."""
         self.obj = obj
         self.graph = get_graph(obj)
         self.profiles: dict[str, NodeProfile] = {}
         self._active_timers: dict[str, float] = {}
+        self._enabled = False
+
+    # ------------------------------------------------------------------
+    # Automatic instrumentation
+    # ------------------------------------------------------------------
+
+    def enable(self) -> None:
+        """Attach this profiler to the graph so ``evaluate_node`` records
+        timing and cache hits automatically."""
+        if self._enabled:
+            return
+        self.graph._profiler = self
+        self._enabled = True
+
+    def disable(self) -> None:
+        """Detach the profiler from the graph."""
+        if not self._enabled:
+            return
+        if self.graph._profiler is self:
+            self.graph._profiler = None
+        self._enabled = False
+
+    # ------------------------------------------------------------------
+    # Manual instrumentation (still available)
+    # ------------------------------------------------------------------
 
     def start_timer(self, method_name: str) -> None:
         """Start timing a method."""
@@ -95,57 +128,53 @@ class Profiler:
 
         self.profiles[method_name].cached_hits += 1
 
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+
     def get_profile(self, method_name: str) -> NodeProfile | None:
-        """Get profile for a specific method."""
         return self.profiles.get(method_name)
 
     def get_all_profiles(self) -> dict[str, NodeProfile]:
-        """Get all profiles."""
         return dict(self.profiles)
 
     def get_optimization_hints(self) -> list[str]:
-        """Generate optimization recommendations based on profiles."""
-        hints = []
+        hints: list[str] = []
 
         for method_name, profile in self.profiles.items():
-            # Hint 1: Methods with high average time should be cached aggressively
             if profile.compute_count > 0 and profile.avg_time > 0.1:
                 hints.append(
-                    f"⚠️  {method_name}: High avg time ({profile.avg_time:.3f}s). "
+                    f"  {method_name}: High avg time ({profile.avg_time:.3f}s). "
                     f"Consider parallelizing or using external caching."
                 )
 
-            # Hint 2: Derived nodes with low cache hit rates waste computation
             if profile.node_type == "derived" and profile.cache_hit_rate < 0.5:
                 hints.append(
-                    f"📊 {method_name}: Low cache hit rate ({profile.cache_hit_rate:.1%}). "
-                    f"Dependencies change frequently—consider granular memoization."
+                    f"  {method_name}: Low cache hit rate ({profile.cache_hit_rate:.1%}). "
+                    f"Dependencies change frequently."
                 )
 
-            # Hint 3: Stored nodes that are accessed frequently but never change
             if (
                 profile.node_type == "stored"
                 and profile.cached_hits > 0
                 and profile.compute_count == 0
             ):
                 hints.append(
-                    f"✓ {method_name}: Well-cached stored node. Cache efficiency: "
-                    f"{profile.cache_hit_rate:.1%}"
+                    f"  {method_name}: Well-cached stored node. "
+                    f"Cache efficiency: {profile.cache_hit_rate:.1%}"
                 )
 
         return hints
 
     def print_profile_report(self) -> None:
-        """Print a detailed profiling report."""
         print("\n" + "=" * 80)
-        print("TALOS PERFORMANCE PROFILE")
+        print("CALYXOS PERFORMANCE PROFILE")
         print("=" * 80)
 
         if not self.profiles:
             print("(No profiling data recorded)")
             return
 
-        # Sort by average time descending
         sorted_profiles = sorted(
             self.profiles.items(), key=lambda x: x[1].avg_time, reverse=True
         )
@@ -167,5 +196,5 @@ class Profiler:
             for hint in hints:
                 print(hint)
         else:
-            print("✓ No optimization recommendations.")
+            print("  No optimization recommendations.")
         print("=" * 80)

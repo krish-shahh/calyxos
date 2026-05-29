@@ -74,6 +74,7 @@ def _compute_args_hash(args: tuple[Any, ...], kwargs: dict[str, Any]) -> int:
 def node(
     *flags: NodeFlag,
     get_changes: Callable[..., Any] | None = None,
+    ttl: float | None = None,
 ) -> Callable[[F], F]:
     """Unified decorator for creating reactive computation nodes.
 
@@ -85,6 +86,8 @@ def node(
             ``NodeFlag.STORED`` = persistent node (implies CAN_SET).
         get_changes: Optional reverse-propagation callback.  Signature:
             ``(self, desired_value) -> list[NodeChange]``.
+        ttl: Optional time-to-live in seconds.  After this duration the
+            cached value is treated as stale and recomputed on next access.
 
     Usage::
 
@@ -96,6 +99,9 @@ def node(
 
         @node(NodeFlag.STORED)
         def persistent(self) -> float: ...
+
+        @node(ttl=3600)
+        def embedding(self) -> list[float]: ...
     """
     combined = NodeFlag.NONE
     for f in flags:
@@ -109,8 +115,8 @@ def node(
 
     def decorator(func: F) -> F:
         if is_stored:
-            return _make_stored_wrapper(func, combined, get_changes)
-        return _make_computed_wrapper(func, combined, get_changes)
+            return _make_stored_wrapper(func, combined, get_changes, ttl)
+        return _make_computed_wrapper(func, combined, get_changes, ttl)
 
     return decorator
 
@@ -119,6 +125,7 @@ def _make_computed_wrapper(
     func: F,
     flags: NodeFlag,
     get_changes_fn: Callable[..., Any] | None,
+    ttl: float | None = None,
 ) -> F:
     """Build the wrapper for a computed (derived) node."""
 
@@ -142,6 +149,9 @@ def _make_computed_wrapper(
             get_changes_fn=get_changes_fn,
         )
 
+        if ttl is not None and nd._ttl is None:
+            nd._ttl = ttl
+
         current_frame = get_current_frame()
         if current_frame is not None:
             record_node_access(obj_id, func.__name__, args_hash)
@@ -158,6 +168,7 @@ def _make_stored_wrapper(
     func: F,
     flags: NodeFlag,
     get_changes_fn: Callable[..., Any] | None,
+    ttl: float | None = None,
 ) -> F:
     """Build the wrapper for a stored (persistent/settable) node."""
 
@@ -392,6 +403,8 @@ def map_node(
 
             orch_hash = _compute_args_hash((self,) + args, kwargs)
 
+            map_prefix = f"_map_{func.__name__}"
+
             def compute_orchestrated() -> list[Any]:
                 # Access the source collection (records dependency)
                 collection = getattr(self, source)()
@@ -401,7 +414,7 @@ def map_node(
                     elem_hash = _compute_args_hash((self, element), {})
 
                     elem_nd = graph.get_or_create_node(
-                        method_name=f"_map_{func.__name__}",
+                        method_name=map_prefix,
                         args_hash=elem_hash,
                         node_type=NodeType.DERIVED,
                         compute_fn=lambda e=element: func(self, e),
@@ -409,7 +422,7 @@ def map_node(
                     )
 
                     # Record element-node access in the orchestrator's frame
-                    record_node_access(obj_id, f"_map_{func.__name__}", elem_hash)
+                    record_node_access(obj_id, map_prefix, elem_hash)
 
                     results.append(graph.evaluate_node(elem_nd))
 
@@ -423,12 +436,36 @@ def map_node(
                 flags=combined,
             )
 
+            # Snapshot old element children before evaluation for GC
+            old_children = {
+                k for k in orch_nd.children
+                if k[1] == map_prefix
+            }
+
             # Record orchestrator access in the parent frame (if any)
             current_frame = get_current_frame()
             if current_frame is not None:
                 record_node_access(obj_id, func.__name__, orch_hash)
 
-            return graph.evaluate_node(orch_nd)
+            result = graph.evaluate_node(orch_nd)
+
+            # GC: remove per-element nodes that are no longer referenced
+            new_children = {
+                k for k in orch_nd.children
+                if k[1] == map_prefix
+            }
+            orphans = old_children - new_children
+            if orphans:
+                with graph._lock:
+                    for orphan_key in orphans:
+                        orphan_nd = graph.nodes.pop(orphan_key, None)
+                        if orphan_nd is not None:
+                            for ck in orphan_nd.children:
+                                child = graph.nodes.get(ck)
+                                if child is not None:
+                                    child.parents.discard(orphan_key)
+
+            return result
 
         wrapper._calyxos_flags = combined  # type: ignore[attr-defined]
         wrapper._calyxos_node = True  # type: ignore[attr-defined]

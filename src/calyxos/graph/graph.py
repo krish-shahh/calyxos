@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +34,9 @@ class ComputationGraph:
 
         # Active layer stack (Phase 3)
         self._layer_stack: list[Layer] = []
+
+        # Optional profiler hook (set via Profiler.enable())
+        self._profiler: Any | None = None
 
     # ------------------------------------------------------------------
     # Node CRUD
@@ -93,8 +97,24 @@ class ComputationGraph:
         if has_override:
             return override_value
 
+        # If the node is in an error state, re-raise the stored exception
+        # so callers see a consistent failure until the node is retried or
+        # its inputs change.
+        if node.error is not None and node.is_valid:
+            raise node.error
+
+        # TTL expiry: treat the cached value as stale if it has expired
+        if (
+            node.is_valid
+            and node._expires_at is not None
+            and time.monotonic() >= node._expires_at
+        ):
+            node.is_valid = False
+
         # Return cached value if valid
         if node.is_valid:
+            if self._profiler is not None:
+                self._profiler.record_cache_hit(node.method_name)
             return node.value
 
         # Early cutoff: if this node has been computed before, verify whether
@@ -105,6 +125,8 @@ class ComputationGraph:
             if not self._any_child_changed(node, recursion_guard):
                 node.is_valid = True
                 node._value_changed = False
+                if node._ttl is not None:
+                    node._expires_at = time.monotonic() + node._ttl
                 return node.value
 
         # Save old value for change detection after recomputation
@@ -113,6 +135,10 @@ class ComputationGraph:
 
         # Push frame to track dependencies
         frame = push_frame(node.object_id, node.method_name, node.args_hash)
+
+        # Profiler: start timing
+        if self._profiler is not None:
+            self._profiler.start_timer(node.method_name)
 
         try:
             # Evaluate the compute function with tracking enabled
@@ -143,7 +169,12 @@ class ComputationGraph:
                 # Cache the value
                 node.value = result
                 node.is_valid = True
+                node.error = None
                 node.compute_count += 1
+
+                # TTL: set expiry
+                if node._ttl is not None:
+                    node._expires_at = time.monotonic() + node._ttl
 
                 # Track whether the value actually changed (for early cutoff
                 # propagation to this node's parents)
@@ -156,9 +187,18 @@ class ComputationGraph:
                     node._value_changed = False
 
             return result
+        except Exception as exc:
+            # Mark node as errored so callers see a clear failure state
+            with self._lock:
+                node.error = exc
+                node.is_valid = True  # "resolved" but to an error
+                node._value_changed = True
+            raise
         finally:
             pop_frame()
             recursion_guard.discard(key)
+            if self._profiler is not None:
+                self._profiler.stop_timer(node.method_name)
 
     # ------------------------------------------------------------------
     # Early cutoff helpers
@@ -526,3 +566,220 @@ class ComputationGraph:
         """Get all invalid (dirty) nodes in the graph."""
         with self._lock:
             return [n for n in self.nodes.values() if not n.is_valid]
+
+    def get_error_nodes(self) -> list[Node]:
+        """Get all nodes in an error state."""
+        with self._lock:
+            return [n for n in self.nodes.values() if n.error is not None]
+
+    def retry_errors(self) -> None:
+        """Clear error state on all errored nodes so they recompute on next access."""
+        with self._lock:
+            for nd in self.nodes.values():
+                if nd.error is not None:
+                    nd.error = None
+                    nd.is_valid = False
+
+    # ------------------------------------------------------------------
+    # Cache eviction
+    # ------------------------------------------------------------------
+
+    def evict_expired(self) -> int:
+        """Evict nodes whose TTL has expired. Returns count of evicted nodes."""
+        now = time.monotonic()
+        count = 0
+        with self._lock:
+            for nd in self.nodes.values():
+                if nd._expires_at is not None and now >= nd._expires_at:
+                    nd.is_valid = False
+                    nd._expires_at = None
+                    count += 1
+        return count
+
+    def gc_orphan_map_nodes(self) -> int:
+        """Remove stale per-element ``_map_*`` nodes that are no longer
+        referenced by any orchestrator node's children set.
+
+        Returns the count of removed nodes.
+        """
+        # Collect all child keys that are actively referenced
+        referenced: set[NodeKey] = set()
+        for nd in self.nodes.values():
+            referenced.update(nd.children)
+
+        to_remove: list[NodeKey] = []
+        with self._lock:
+            for key, nd in self.nodes.items():
+                if nd.method_name.startswith("_map_") and key not in referenced:
+                    # Also make sure it has no parents that still reference it
+                    if not nd.parents or all(
+                        pk not in self.nodes for pk in nd.parents
+                    ):
+                        to_remove.append(key)
+
+            for key in to_remove:
+                # Clean up parent pointers in children
+                nd = self.nodes[key]
+                for child_key in nd.children:
+                    child = self.nodes.get(child_key)
+                    if child is not None:
+                        child.parents.discard(key)
+                del self.nodes[key]
+
+        return len(to_remove)
+
+    # ------------------------------------------------------------------
+    # Async evaluation
+    # ------------------------------------------------------------------
+
+    async def async_evaluate_node(
+        self, node: Node, recursion_guard: set[NodeKey] | None = None
+    ) -> Any:
+        """Async variant of :meth:`evaluate_node`.
+
+        If the node's ``compute_fn`` returns a coroutine, it is awaited.
+        Independent children are evaluated concurrently with
+        ``asyncio.gather``.
+        """
+        import asyncio
+        import inspect
+
+        if recursion_guard is None:
+            recursion_guard = set()
+
+        key = node.key()
+        if key in recursion_guard:
+            raise RuntimeError(f"Cycle detected in computation graph at {key}")
+        recursion_guard.add(key)
+
+        has_override, override_value = self._get_active_override(key)
+        if has_override:
+            return override_value
+
+        if node.error is not None and node.is_valid:
+            raise node.error
+
+        if (
+            node.is_valid
+            and node._expires_at is not None
+            and time.monotonic() >= node._expires_at
+        ):
+            node.is_valid = False
+
+        if node.is_valid:
+            return node.value
+
+        # Early cutoff (async version)
+        if node.compute_count > 0 and node.children:
+            if not await self._async_any_child_changed(node, recursion_guard):
+                node.is_valid = True
+                node._value_changed = False
+                if node._ttl is not None:
+                    node._expires_at = time.monotonic() + node._ttl
+                return node.value
+
+        old_value = node.value
+        had_old = node.compute_count > 0
+
+        frame = push_frame(node.object_id, node.method_name, node.args_hash)
+
+        try:
+            result = node.compute_fn()
+            if inspect.isawaitable(result):
+                result = await result
+
+            with self._lock:
+                node.children = frame.accessed_nodes.copy()
+
+                for child_key in frame.accessed_nodes:
+                    child_node = self.nodes.get(child_key)
+                    if child_node is not None:
+                        child_node.parents.add(key)
+                    elif child_key[0] != self.object_id:
+                        from calyxos.graph.registry import CrossObjectRegistry
+
+                        registry = CrossObjectRegistry.get()
+                        remote_graph = registry.get_graph(child_key[0])
+                        if remote_graph is not None:
+                            remote_node = remote_graph.nodes.get(child_key)
+                            if remote_node is not None:
+                                remote_node.parents.add(key)
+                        registry.add_cross_edge(child_key, key)
+
+                node.value = result
+                node.is_valid = True
+                node.error = None
+                node.compute_count += 1
+
+                if node._ttl is not None:
+                    node._expires_at = time.monotonic() + node._ttl
+
+                if had_old:
+                    try:
+                        node._value_changed = bool(result != old_value)
+                    except Exception:
+                        node._value_changed = result is not old_value
+                else:
+                    node._value_changed = False
+
+            return result
+        except Exception as exc:
+            with self._lock:
+                node.error = exc
+                node.is_valid = True
+                node._value_changed = True
+            raise
+        finally:
+            pop_frame()
+            recursion_guard.discard(key)
+
+    async def _async_any_child_changed(
+        self, node: Node, recursion_guard: set[NodeKey] | None
+    ) -> bool:
+        """Async version of :meth:`_any_child_changed`.
+
+        Evaluates independent dirty children concurrently with
+        ``asyncio.gather``.
+        """
+        import asyncio
+
+        # First pass: identify dirty children that need evaluation
+        dirty: list[tuple[NodeKey, Node]] = []
+        for child_key in node.children:
+            child = self.nodes.get(child_key)
+            if child is None and child_key[0] != self.object_id:
+                from calyxos.graph.registry import CrossObjectRegistry
+
+                registry = CrossObjectRegistry.get()
+                remote_graph = registry.get_graph(child_key[0])
+                if remote_graph is not None:
+                    child = remote_graph.nodes.get(child_key)
+            if child is None:
+                return True
+            if not child.is_valid:
+                dirty.append((child_key, child))
+
+        # Evaluate all dirty children concurrently
+        if dirty:
+            async def _eval(ck: NodeKey, c: Node) -> None:
+                if ck[0] == self.object_id:
+                    await self.async_evaluate_node(c, recursion_guard)
+                else:
+                    from calyxos.graph.registry import CrossObjectRegistry
+
+                    registry = CrossObjectRegistry.get()
+                    remote_graph = registry.get_graph(ck[0])
+                    if remote_graph is not None:
+                        await remote_graph.async_evaluate_node(c, recursion_guard)
+
+            await asyncio.gather(*[_eval(ck, c) for ck, c in dirty])
+
+        # Now check if any child changed
+        for child_key in node.children:
+            child = self.nodes.get(child_key)
+            if child is None:
+                return True
+            if child._value_changed:
+                return True
+
+        return False

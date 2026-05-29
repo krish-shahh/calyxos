@@ -7,49 +7,48 @@ from calyxos.storage.backend import StorageBackend
 
 T = TypeVar("T")
 
-# Global mapping of object id to loaded stored values
+# Global mapping of object id -> loaded stored values
 _loaded_values: dict[int, dict[str, Any]] = {}
 
 
-def save_object(obj: Any, backend: StorageBackend) -> None:
-    """
-    Save the stored state of a calyxos object to the backend.
+def save_object(obj: Any, backend: StorageBackend, key: str) -> None:
+    """Save the stored state of a calyxos object to the backend.
 
     Only stored nodes are persisted; derived values are recomputed on load.
 
     Args:
-        obj: The calyxos-managed object to save
-        backend: The storage backend to use
+        obj: The calyxos-managed object to save.
+        backend: The storage backend to use.
+        key: A stable string identifier (e.g. ``"pipeline-main"``).
+             Must be the same key used later with :func:`load_object`.
     """
     graph = get_graph(obj)
-    stored_values = {}
+    stored_values: dict[str, Any] = {}
 
     for node in graph.get_stored_nodes():
         stored_values[node.method_name] = node.value
 
-    backend.save(id(obj), stored_values)
+    backend.save(key, stored_values)
 
 
-def load_object(obj: T, backend: StorageBackend) -> T:
-    """
-    Load the stored state of a calyxos object from the backend.
+def load_object(obj: T, backend: StorageBackend, key: str) -> T:
+    """Load the stored state of a calyxos object from the backend.
 
     Restores stored nodes and rebuilds derived values lazily.
-    Stores loaded values in a global cache that stored nodes will check
-    on their first access.
 
     Args:
-        obj: The calyxos-managed object to load into
-        backend: The storage backend to use
+        obj: The calyxos-managed object to load into.
+        backend: The storage backend to use.
+        key: The same string identifier used when saving.
 
     Returns:
-        The object with restored stored state
+        The object with restored stored state.
     """
-    # Load stored values from backend
-    stored_values = backend.load(id(obj))
+    stored_values = backend.load(key)
 
     if stored_values is not None:
-        # Cache loaded values for this object
+        # Cache loaded values keyed by object's runtime id so the stored
+        # wrapper can pick them up on first access.
         _loaded_values[id(obj)] = stored_values
 
     return obj

@@ -7,7 +7,7 @@ evaluated lazily and cached, with calyxos recording runtime execution dependenci
 construct a directed acyclic graph that reflects actual method calls.
 """
 
-from calyxos.core.async_support import async_fn
+from calyxos.core.async_support import async_fn, async_map_node
 from calyxos.core.decorator import clear_graph, fn, get_graph, map_node, node, set_stored, set_value, stored
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
@@ -45,7 +45,7 @@ from calyxos.utils.distributed import DistributedExecutor, NodeExecutionPlan
 from calyxos.utils.gradient_tracking import GradientTracker, enable_autograd_tracking
 from calyxos.utils.profiler import Profiler
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 
 def inspect(obj):
@@ -64,6 +64,7 @@ __all__ = [
     "fn",
     "stored",
     "async_fn",
+    "async_map_node",
     "node",
     # Node flags
     "NodeFlag",

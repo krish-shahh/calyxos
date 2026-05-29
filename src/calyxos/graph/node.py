@@ -47,6 +47,15 @@ class Node:
     # then updated after recomputation with the actual comparison result.
     _value_changed: bool = False
 
+    # Error handling: stores the last exception raised by compute_fn.
+    # When set, the node is in an error state — accessing it re-raises.
+    error: Exception | None = None
+
+    # TTL: optional time-to-live in seconds.  After ``_expires_at`` the
+    # cached value is treated as stale and recomputed on next access.
+    _ttl: float | None = None
+    _expires_at: float | None = None
+
     # Reverse propagation callback (set via @node(get_changes=...))
     get_changes_fn: Callable[..., Any] | None = None
 

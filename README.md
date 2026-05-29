@@ -410,6 +410,109 @@ class Logger:
         return 99  # independent of data
 ```
 
+## Error Handling & Retry
+
+If `compute_fn()` raises an exception, calyxos captures it on the node. Subsequent accesses re-raise the stored error until the node is retried or its inputs change.
+
+```python
+graph = get_graph(model)
+
+try:
+    model.flaky_fetch()
+except ConnectionError:
+    pass
+
+# Inspect error state
+print(graph.get_error_nodes())  # [Node(method=flaky_fetch, ...)]
+
+# Retry all errored nodes (clears error, marks dirty)
+graph.retry_errors()
+model.flaky_fetch()  # recomputes
+```
+
+## TTL & Cache Eviction
+
+Nodes can have a time-to-live. After the TTL expires, the cached value is treated as stale and recomputed on next access.
+
+```python
+@node(ttl=3600)  # 1 hour
+def embedding(self) -> list[float]:
+    return call_embedding_api(self.text())
+
+# Force-expire all TTL nodes
+graph.evict_expired()
+```
+
+## Automatic Profiling
+
+The `Profiler` hooks into `evaluate_node` automatically — no manual `start_timer` / `stop_timer` calls.
+
+```python
+from calyxos import Profiler
+
+prof = Profiler(model)
+prof.enable()               # attach to the graph
+
+model.expensive_pipeline()  # automatically timed
+
+prof.print_profile_report() # table + optimization hints
+prof.disable()              # detach
+```
+
+## Parallel Execution
+
+`DistributedExecutor` evaluates independent nodes concurrently using a thread pool.
+
+```python
+from calyxos import DistributedExecutor
+
+executor = DistributedExecutor(model, workers=4)
+results = executor.execute()  # evaluates all nodes, parallelising within stages
+```
+
+## Async Evaluation
+
+`@async_fn` and `@async_map_node` use `asyncio.gather` to evaluate independent branches concurrently — ideal for pipelines that call external APIs.
+
+```python
+from calyxos import async_fn, async_map_node
+
+class Pipeline:
+    @node(NodeFlag.STORED)
+    def urls(self) -> list[str]:
+        return ["http://a.com/api", "http://b.com/api"]
+
+    @async_map_node("urls")
+    async def fetched(self, url: str) -> dict:
+        async with aiohttp.ClientSession() as s:
+            async with s.get(url) as r:
+                return await r.json()
+
+p = Pipeline()
+results = asyncio.run(p.fetched())  # all URLs fetched concurrently
+```
+
+## Storage & Persistence
+
+Only `@node(NodeFlag.STORED)` values are persisted. Derived values recompute from inputs on load, guaranteeing determinism. Storage keys are user-supplied strings that remain stable across process restarts.
+
+```python
+from calyxos import SQLiteStorage, JSONStorage
+from calyxos.core.persistence import save_object, load_object
+
+backend = SQLiteStorage("data.db")
+
+# Save with a stable key
+save_object(model, backend, key="pipeline-main")
+
+# In a different process / after restart
+model2 = MyPipeline()
+load_object(model2, backend, key="pipeline-main")
+# Stored values restored, derived values recompute lazily
+```
+
+Implement the `StorageBackend` protocol for custom backends.
+
 ## Graph Visualization
 
 Render computation graphs as images using [Graphviz](https://graphviz.org/). Install the optional dependency with `pip install calyxos[viz]`.
@@ -466,26 +569,6 @@ print(is_overridden(model, "temperature"))
 print(get_node_flags(model, "temperature"))
 ```
 
-## Storage & Persistence
-
-Only `@node(NodeFlag.STORED)` values are persisted. Derived values recompute from inputs on load, guaranteeing determinism.
-
-```python
-from calyxos import SQLiteStorage, JSONStorage
-from calyxos.core.persistence import save_object, load_object
-
-# SQLite
-backend = SQLiteStorage("data.db")
-save_object(model, backend)
-load_object(model, backend)
-
-# JSON
-backend = JSONStorage("./data/")
-save_object(model, backend)
-```
-
-Implement the `StorageBackend` protocol for custom backends.
-
 ## Architecture
 
 calyxos is organized into four layers:
@@ -530,7 +613,10 @@ src/calyxos/
 - **Runtime tracking over static analysis**: Dependencies are discovered by recording node accesses during execution, not by parsing AST. This handles conditional deps, loops, and polymorphism correctly.
 - **Lazy invalidation with early cutoff**: Changing a value marks dependents dirty but doesn't recompute. On access, dirty nodes verify whether their inputs actually changed before running `compute_fn`. If no input changed, the cached value is re-validated without recomputation, and the cutoff propagates upward.
 - **Value-equality guard**: `set_value()` compares new values against cached values and short-circuits when they match, preventing invalidation cascades from no-op mutations.
-- **Per-element fan-out**: `@map_node` creates independent sub-nodes for each collection element, so changes to one element don't force recomputation of the entire collection.
+- **Per-element fan-out with GC**: `@map_node` creates independent sub-nodes for each collection element. When elements are removed, their orphaned nodes are garbage collected automatically.
+- **Error capture and retry**: If `compute_fn` raises, the exception is stored on the node. Subsequent accesses re-raise it cleanly. `graph.retry_errors()` clears error state for recomputation.
+- **TTL-based expiry**: Nodes can have a time-to-live. Expired values are treated as stale and recomputed on next access.
+- **Async-native**: `@async_fn` and `@async_map_node` use `asyncio.gather` to evaluate independent branches concurrently.
 - **Instance-scoped graphs**: Each object has its own computation graph. Cross-object edges use weak references.
 - **Zero dependencies**: Core uses only Python stdlib (threading, contextvars, hashlib, dataclasses).
 
@@ -572,18 +658,23 @@ mypy src/calyxos/
 ruff check src/calyxos/
 ```
 
-The test suite includes 130 tests covering:
+The test suite includes 145 tests covering:
 
 - Core memoization and argument handling
 - Dependency tracking (conditional, diamond, cross-object)
 - Invalidation propagation (selective, lazy, cross-graph)
 - Value-equality guard and early cutoff optimization
-- `@map_node` per-element caching and dependency tracking
+- `@map_node` per-element caching, dependency tracking, and GC
+- Error handling (capture, re-raise, retry)
+- TTL / cache eviction
+- Automatic profiler instrumentation
+- Parallel execution with `DistributedExecutor.execute()`
+- Async evaluation (`@async_fn`, `@async_map_node`)
 - Contexts (override, revert, nesting, exception safety)
 - Layers (snapshot, restore, re-entry, independence)
 - Reverse propagation (basic, chained, recursion limit)
+- Storage with stable string keys (SQLite, JSON, cross-process roundtrip)
 - Enhanced introspection (tree dumps, node status, flags)
-- Storage (SQLite, JSON, persistence roundtrips)
 
 ## Contributing
 

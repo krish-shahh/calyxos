@@ -9,11 +9,9 @@ from calyxos.core.persistence import load_object, save_object
 
 
 class TestSQLiteStorage:
-    """Test SQLite storage backend."""
+    """Test SQLite storage backend with string keys."""
 
     def test_save_and_load(self) -> None:
-        """Test saving and loading stored values."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             backend = SQLiteStorage(db_path)
@@ -24,31 +22,42 @@ class TestSQLiteStorage:
                     return 100.0
 
             account = Account()
-            account_id = id(account)
-
-            # First access creates the node
             _ = account.balance()
-
-            # Modify stored value
             set_stored(account, "balance", 250.0)
 
-            # Save
-            save_object(account, backend)
+            save_object(account, backend, key="acct-1")
 
-            # Load into new instance with the SAME object id key
-            # (In real usage, you'd use a UUID or identifier, not Python id())
+            # Load into a brand-new object — no id() hack needed
             account2 = Account()
-            account2._calyxos_override_id = account_id  # Use same ID as original
-            load_object(account2, backend)
-
+            load_object(account2, backend, key="acct-1")
             assert account2.balance() == 250.0
 
-    def test_multiple_stored_values(self) -> None:
-        """Test saving multiple stored values."""
-
+    def test_cross_process_persistence(self) -> None:
+        """Simulates cross-process: save, discard object, load into new one."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             backend = SQLiteStorage(db_path)
+
+            class Model:
+                @stored
+                def x(self) -> int:
+                    return 0
+
+            m1 = Model()
+            _ = m1.x()
+            set_stored(m1, "x", 42)
+            save_object(m1, backend, key="my-model")
+            del m1
+
+            # "New process" — different backend instance, new object
+            backend2 = SQLiteStorage(db_path)
+            m2 = Model()
+            load_object(m2, backend2, key="my-model")
+            assert m2.x() == 42
+
+    def test_multiple_stored_values(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            backend = SQLiteStorage(Path(tmpdir) / "test.db")
 
             class Portfolio:
                 @stored
@@ -59,81 +68,57 @@ class TestSQLiteStorage:
                 def shares(self) -> int:
                     return 100
 
-            portfolio = Portfolio()
-            portfolio_id = id(portfolio)
+            p = Portfolio()
+            _ = p.cash()
+            _ = p.shares()
+            set_stored(p, "cash", 2000.0)
+            set_stored(p, "shares", 200)
 
-            # First access creates the nodes
-            _ = portfolio.cash()
-            _ = portfolio.shares()
+            save_object(p, backend, key="portfolio-main")
 
-            # Modify both
-            set_stored(portfolio, "cash", 2000.0)
-            set_stored(portfolio, "shares", 200)
-
-            # Save
-            save_object(portfolio, backend)
-
-            # Load into new instance with same ID
-            portfolio2 = Portfolio()
-            portfolio2._calyxos_override_id = portfolio_id
-            load_object(portfolio2, backend)
-
-            assert portfolio2.cash() == 2000.0
-            assert portfolio2.shares() == 200
+            p2 = Portfolio()
+            load_object(p2, backend, key="portfolio-main")
+            assert p2.cash() == 2000.0
+            assert p2.shares() == 200
 
     def test_exists_check(self) -> None:
-        """Test the exists() method."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-            backend = SQLiteStorage(db_path)
+            backend = SQLiteStorage(Path(tmpdir) / "test.db")
 
             class Data:
                 @stored
                 def value(self) -> int:
                     return 42
 
-            data = Data()
-            obj_id = id(data)
+            d = Data()
+            _ = d.value()
 
-            assert not backend.exists(obj_id)
-
-            # Create the node first
-            _ = data.value()
-
-            save_object(data, backend)
-
-            assert backend.exists(obj_id)
+            assert not backend.exists("data-1")
+            save_object(d, backend, key="data-1")
+            assert backend.exists("data-1")
 
     def test_delete(self) -> None:
-        """Test the delete() method."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-            backend = SQLiteStorage(db_path)
+            backend = SQLiteStorage(Path(tmpdir) / "test.db")
 
             class Data:
                 @stored
                 def value(self) -> int:
                     return 42
 
-            data = Data()
-            obj_id = id(data)
+            d = Data()
+            _ = d.value()
+            save_object(d, backend, key="data-1")
+            assert backend.exists("data-1")
 
-            _ = data.value()  # Create node
-            save_object(data, backend)
-            assert backend.exists(obj_id)
-
-            backend.delete(obj_id)
-            assert not backend.exists(obj_id)
+            backend.delete("data-1")
+            assert not backend.exists("data-1")
 
 
 class TestJSONStorage:
-    """Test JSON storage backend."""
+    """Test JSON storage backend with string keys."""
 
     def test_save_and_load(self) -> None:
-        """Test saving and loading with JSON storage."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
             backend = JSONStorage(tmpdir)
 
@@ -143,21 +128,16 @@ class TestJSONStorage:
                     return 100.0
 
             account = Account()
-            account_id = id(account)
-            _ = account.balance()  # Create node
+            _ = account.balance()
             set_stored(account, "balance", 500.0)
 
-            save_object(account, backend)
+            save_object(account, backend, key="acct-1")
 
             account2 = Account()
-            account2._calyxos_override_id = account_id
-            load_object(account2, backend)
-
+            load_object(account2, backend, key="acct-1")
             assert account2.balance() == 500.0
 
     def test_file_location(self) -> None:
-        """Test that files are created in the correct location."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
             backend = JSONStorage(tmpdir)
 
@@ -166,18 +146,14 @@ class TestJSONStorage:
                 def value(self) -> int:
                     return 42
 
-            data = Data()
-            obj_id = id(data)
+            d = Data()
+            _ = d.value()
+            save_object(d, backend, key="my-data")
 
-            _ = data.value()  # Create node
-            save_object(data, backend)
-
-            expected_file = Path(tmpdir) / f"object_{obj_id}.json"
+            expected_file = Path(tmpdir) / "my-data.json"
             assert expected_file.exists()
 
     def test_multiple_objects(self) -> None:
-        """Test storing multiple objects."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
             backend = JSONStorage(tmpdir)
 
@@ -188,25 +164,18 @@ class TestJSONStorage:
 
             c1 = Counter()
             c2 = Counter()
-            c1_id = id(c1)
-            c2_id = id(c2)
-
-            _ = c1.value()  # Create node
-            _ = c2.value()  # Create node
-
+            _ = c1.value()
+            _ = c2.value()
             set_stored(c1, "value", 10)
             set_stored(c2, "value", 20)
 
-            save_object(c1, backend)
-            save_object(c2, backend)
+            save_object(c1, backend, key="counter-1")
+            save_object(c2, backend, key="counter-2")
 
             c1_loaded = Counter()
             c2_loaded = Counter()
-            c1_loaded._calyxos_override_id = c1_id
-            c2_loaded._calyxos_override_id = c2_id
-
-            load_object(c1_loaded, backend)
-            load_object(c2_loaded, backend)
+            load_object(c1_loaded, backend, key="counter-1")
+            load_object(c2_loaded, backend, key="counter-2")
 
             assert c1_loaded.value() == 10
             assert c2_loaded.value() == 20
@@ -216,11 +185,8 @@ class TestPersistenceRoundtrip:
     """Test full persistence roundtrip with derived values."""
 
     def test_rehydration_rebuilds_derived(self) -> None:
-        """Test that loading an object rebuilds derived values lazily."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-            backend = SQLiteStorage(db_path)
+            backend = SQLiteStorage(Path(tmpdir) / "test.db")
 
             class Model:
                 @stored
@@ -235,36 +201,25 @@ class TestPersistenceRoundtrip:
                 def tripled(self) -> int:
                     return self.input_value() * 3
 
-            # Create, modify, and save
             model = Model()
-            model_id = id(model)
-            _ = model.input_value()  # Create node
+            _ = model.input_value()
             set_stored(model, "input_value", 20)
-            save_object(model, backend)
+            save_object(model, backend, key="model-1")
 
-            # Load into fresh instance with same ID
             model2 = Model()
-            model2._calyxos_override_id = model_id
-            load_object(model2, backend)
+            load_object(model2, backend, key="model-1")
 
-            # Stored value should be restored
             assert model2.input_value() == 20
-
-            # Derived values should recompute correctly
             assert model2.doubled() == 40
             assert model2.tripled() == 60
 
-            # Check that nodes exist and have correct values
             graph = get_graph(model2)
             doubled_node = next(n for n in graph.get_all_nodes() if n.method_name == "doubled")
             assert doubled_node.value == 40
 
     def test_partial_evaluation_after_load(self) -> None:
-        """Test that not all derived nodes are evaluated after load."""
-
         with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-            backend = SQLiteStorage(db_path)
+            backend = SQLiteStorage(Path(tmpdir) / "test.db")
 
             class Model:
                 @stored
@@ -280,35 +235,22 @@ class TestPersistenceRoundtrip:
                     return self.base() + 2
 
             model = Model()
-            model_id = id(model)
-            _ = model.base()  # Create node
-            save_object(model, backend)
+            _ = model.base()
+            save_object(model, backend, key="model-2")
 
             model2 = Model()
-            model2._calyxos_override_id = model_id
-            load_object(model2, backend)
-
-            graph = get_graph(model2)
-
-            # Access stored node to create it
+            load_object(model2, backend, key="model-2")
             _ = model2.base()
 
-            # Stored node should be valid
-            base_node = next(n for n in graph.get_all_nodes()
-                            if n.method_name == "base")
+            graph = get_graph(model2)
+            base_node = next(n for n in graph.get_all_nodes() if n.method_name == "base")
             assert base_node.is_valid
 
-            # Access one derived value
             assert model2.computed_a() == 2
 
-            # Only computed_a should be computed, not computed_b
-            computed_a = next(n for n in graph.get_all_nodes()
-                             if n.method_name == "computed_a")
+            computed_a = next(n for n in graph.get_all_nodes() if n.method_name == "computed_a")
             assert computed_a.compute_count == 1
 
-            # computed_b was never accessed, so it might not have a node yet
-            computed_b_nodes = [n for n in graph.get_all_nodes()
-                               if n.method_name == "computed_b"]
+            computed_b_nodes = [n for n in graph.get_all_nodes() if n.method_name == "computed_b"]
             if computed_b_nodes:
-                computed_b = computed_b_nodes[0]
-                assert computed_b.compute_count == 0
+                assert computed_b_nodes[0].compute_count == 0
