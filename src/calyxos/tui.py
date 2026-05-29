@@ -2,14 +2,9 @@
 
 Usage::
 
-    from calyxos.tui import inspect
-    inspect(my_object)
-
-Or from the benchmark::
-
-    pipe = DataPipeline()
-    pipe.output()
-    inspect(pipe)
+    from calyxos.tui import inspect, inspect_mlx
+    inspect(my_object)          # core calyxos objects
+    inspect_mlx(mlx_graph)      # MLXGraph objects
 """
 
 from __future__ import annotations
@@ -490,4 +485,371 @@ def inspect(obj: Any) -> None:
             continue
 
         handler(obj, cmd_args)
+        console.print()
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  MLX Graph Inspector
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _mx_shape_str(arr: Any) -> str:
+    """Format an mx.array as 'shape dtype', e.g. '(512, 2048) float32'."""
+    try:
+        return f"{list(arr.shape)} {arr.dtype}"
+    except Exception:
+        return repr(arr)[:40]
+
+
+def _mlx_node_badge(name: str, kind: str, stale: bool) -> str:
+    if kind == "var":
+        icon = "[yellow]■[/]"
+        name_style = "bold yellow"
+    else:
+        icon = "[cyan]◆[/]"
+        name_style = "bold cyan"
+
+    if stale:
+        status = "[bold red]✗[/]"
+        name_style = "bold red"
+    else:
+        status = "[green]●[/]"
+
+    return f"{icon} [{name_style}]{name}[/] {status}"
+
+
+def mlx_cmd_graph(g: Any, _args: str) -> None:
+    from calyxos.ml.mlx_graph import MLXNode, MLXVar
+
+    t = Table(
+        box=box.ROUNDED,
+        title=f"[bold]MLXGraph[/] — {len(g._vars)} vars, {len(g._nodes)} nodes",
+        title_style="",
+        show_lines=False,
+        pad_edge=False,
+    )
+    t.add_column("name", style="bold")
+    t.add_column("type", justify="center")
+    t.add_column("status", justify="center")
+    t.add_column("shape", max_width=28)
+    t.add_column("version", justify="right")
+
+    for v in g._vars.values():
+        t.add_row(
+            v.name,
+            "[yellow]var[/]",
+            "[green]—[/]",
+            _mx_shape_str(v.value),
+            str(v.version),
+        )
+
+    from calyxos.ml.mlx_graph import _UNSET
+
+    for name in g._topo_order:
+        nd = g._nodes[name]
+        stale = nd.is_stale
+        has_value = nd._cached is not _UNSET
+        t.add_row(
+            nd.name,
+            "[cyan]node[/]",
+            "[bold red]stale[/]" if stale else "[green]valid[/]",
+            _mx_shape_str(nd._cached) if has_value else "[dim]—[/]",
+            str(nd.version),
+        )
+
+    console.print(t)
+
+
+def mlx_cmd_flow(g: Any, _args: str) -> None:
+    from calyxos.ml.mlx_graph import MLXNode, MLXVar
+
+    # Build adjacency for topological layering
+    all_names: list[str] = list(g._vars.keys()) + list(g._topo_order)
+    in_deg: dict[str, int] = {n: 0 for n in all_names}
+    children_of: dict[str, list[str]] = {n: [] for n in all_names}
+
+    for nd in g._nodes.values():
+        for inp in nd._inputs:
+            children_of[inp.name].append(nd.name)
+            in_deg[nd.name] += 1
+
+    # BFS layering
+    layers: list[list[str]] = []
+    ready = [n for n in all_names if in_deg[n] == 0]
+    visited: set[str] = set()
+
+    while ready:
+        layer = sorted(ready)
+        layers.append(layer)
+        visited.update(layer)
+        next_ready = []
+        for n in layer:
+            for dep in children_of.get(n, []):
+                in_deg[dep] -= 1
+                if in_deg[dep] == 0 and dep not in visited:
+                    next_ready.append(dep)
+        ready = next_ready
+
+    lines: list[str] = []
+    for i, layer in enumerate(layers):
+        badges = []
+        for name in layer:
+            if name in g._vars:
+                badges.append(_mlx_node_badge(name, "var", False))
+            else:
+                nd = g._nodes[name]
+                badges.append(_mlx_node_badge(name, "node", nd.is_stale))
+
+        if i == 0:
+            label = "inputs"
+        elif i == len(layers) - 1:
+            label = "output"
+        else:
+            label = f"layer {i}"
+
+        row = "  ".join(badges)
+        lines.append(f"  [dim]{label:>8}[/]  {row}")
+
+        if i < len(layers) - 1:
+            lines.append(f"  [dim]{'':>8}  {'│':>1}[/]")
+            lines.append(f"  [dim]{'':>8}  {'▼':>1}[/]")
+
+    content = "\n".join(lines)
+    console.print(Panel(
+        content,
+        title="[bold]MLXGraph[/]  [yellow]■[/] var  [cyan]◆[/] node  [green]●[/] valid  [red]✗[/] stale",
+        border_style="blue",
+        padding=(1, 1),
+    ))
+
+
+def mlx_cmd_node(g: Any, args: str) -> None:
+    from calyxos.ml.mlx_graph import MLXNode, MLXVar
+
+    name = args.strip()
+    if not name:
+        console.print("[red]usage: node <name>[/]")
+        return
+
+    if name in g._vars:
+        v = g._vars[name]
+        rows = [
+            ("name", v.name),
+            ("type", "var (input)"),
+            ("version", str(v.version)),
+            ("shape", _mx_shape_str(v.value)),
+        ]
+        # find dependents
+        deps = [nd.name for nd in g._nodes.values() if v in nd._inputs]
+        rows.append(("used by", ", ".join(sorted(deps)) if deps else "(none)"))
+
+        t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+        t.add_column(style="dim", min_width=12)
+        t.add_column()
+        for k, val in rows:
+            t.add_row(k, val)
+        console.print(Panel(t, title=f"[bold yellow]{name}[/]", border_style="yellow", padding=(0, 1)))
+        return
+
+    if name in g._nodes:
+        nd = g._nodes[name]
+        inputs = [inp.name for inp in nd._inputs]
+        # find dependents
+        deps = [n2.name for n2 in g._nodes.values() if nd in n2._inputs]
+        stale = nd.is_stale
+
+        rows = [
+            ("name", nd.name),
+            ("type", "node (compute)"),
+            ("status", "[bold red]stale[/]" if stale else "[green]valid[/]"),
+            ("version", str(nd.version)),
+            ("inputs", ", ".join(inputs) if inputs else "(none)"),
+            ("used by", ", ".join(sorted(deps)) if deps else "(none)"),
+        ]
+        if nd._cached is not None and not stale:
+            rows.append(("shape", _mx_shape_str(nd._cached)))
+
+        t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+        t.add_column(style="dim", min_width=12)
+        t.add_column()
+        for k, val in rows:
+            t.add_row(k, val)
+        console.print(Panel(t, title=f"[bold cyan]{name}[/]", border_style="cyan", padding=(0, 1)))
+        return
+
+    console.print(f"[red]'{name}' not found in graph[/]")
+
+
+def mlx_cmd_set(g: Any, args: str) -> None:
+    import mlx.core as mx
+
+    parts = args.strip().split()
+    if len(parts) < 2:
+        console.print("[red]usage: set <var> random <shape...>  or  set <var> zeros <shape...>[/]")
+        return
+
+    name = parts[0]
+    if name not in g._vars:
+        console.print(f"[red]'{name}' is not a var (only vars can be set)[/]")
+        return
+
+    fill = parts[1]
+    try:
+        shape = tuple(int(x) for x in parts[2:])
+    except ValueError:
+        # Fall back: use current shape
+        shape = tuple(g._vars[name].value.shape)
+
+    if not shape:
+        shape = tuple(g._vars[name].value.shape)
+
+    if fill == "random":
+        new_val = mx.random.normal(shape)
+    elif fill == "zeros":
+        new_val = mx.zeros(shape)
+    elif fill == "ones":
+        new_val = mx.ones(shape)
+    else:
+        console.print(f"[red]unknown fill: {fill} (use random, zeros, ones)[/]")
+        return
+
+    g._vars[name].set(new_val)
+
+    stale = g.stale_nodes()
+    console.print(f"[green]set {name}[/] -> {_mx_shape_str(new_val)}")
+    if stale:
+        console.print(f"[yellow]stale:[/] {', '.join(n.name for n in stale)}")
+    else:
+        console.print("[dim]no downstream nodes affected[/]")
+
+
+def mlx_cmd_eval(g: Any, args: str) -> None:
+    import time
+
+    name = args.strip()
+    if not name:
+        # Evaluate all stale nodes
+        stale = g.stale_nodes()
+        if not stale:
+            console.print("[green]all nodes valid, nothing to evaluate[/]")
+            return
+        targets = stale
+    else:
+        if name not in g._nodes:
+            console.print(f"[red]'{name}' is not a compute node[/]")
+            return
+        targets = [g._nodes[name]]
+
+    stale_before = g.stale_nodes()
+    t0 = time.perf_counter()
+    g.eval(*targets)
+    elapsed = (time.perf_counter() - t0) * 1000
+
+    stale_after = g.stale_nodes()
+    recomputed = len(stale_before) - len(stale_after)
+
+    for nd in targets:
+        console.print(f"  [green]{nd.name}[/] -> {_mx_shape_str(nd._cached)}")
+
+    console.print(f"[dim]{recomputed} node(s) recomputed in {elapsed:.2f}ms[/]")
+
+
+def mlx_cmd_stale(g: Any, _args: str) -> None:
+    stale = g.stale_nodes()
+    if not stale:
+        console.print("[green]all nodes valid[/]")
+        return
+
+    for nd in stale:
+        console.print(f"  [red]{nd.name}[/]  [dim]v={nd.version}[/]")
+
+    console.print(f"[dim]{len(stale)}/{len(g._nodes)} stale[/]")
+
+
+def mlx_cmd_stats(g: Any, _args: str) -> None:
+    stale = g.stale_nodes()
+    total_versions = sum(nd.version for nd in g._nodes.values())
+
+    t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+    t.add_column(style="dim", min_width=16)
+    t.add_column()
+    t.add_row("vars", str(len(g._vars)))
+    t.add_row("compute nodes", str(len(g._nodes)))
+    t.add_row("stale", f"[red]{len(stale)}[/]" if stale else "0")
+    t.add_row("total recomputes", str(total_versions))
+
+    console.print(Panel(t, title="[bold]stats[/]", border_style="dim", padding=(0, 1)))
+
+
+def mlx_cmd_help(_g: Any, _args: str) -> None:
+    t = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
+    t.add_column(style="bold cyan", min_width=30)
+    t.add_column(style="dim")
+    t.add_row("graph", "show all vars and nodes")
+    t.add_row("flow", "layered DAG view")
+    t.add_row("node <name>", "inspect a var or node")
+    t.add_row("set <var> random [shape...]", "set var, show staleness cascade")
+    t.add_row("eval [name]", "evaluate node(s) with mx.eval()")
+    t.add_row("stale", "list stale nodes")
+    t.add_row("stats", "graph statistics")
+    t.add_row("help", "this message")
+    t.add_row("quit / q / exit", "exit inspector")
+    console.print(Panel(t, title="[bold]commands[/]", border_style="dim", padding=(0, 1)))
+
+
+MLX_COMMANDS = {
+    "graph": mlx_cmd_graph,
+    "flow": mlx_cmd_flow,
+    "node": mlx_cmd_node,
+    "set": mlx_cmd_set,
+    "eval": mlx_cmd_eval,
+    "stale": mlx_cmd_stale,
+    "stats": mlx_cmd_stats,
+    "help": mlx_cmd_help,
+}
+
+
+def inspect_mlx(g: Any) -> None:
+    """Drop into an interactive inspector for an MLXGraph.
+
+    Args:
+        g: An ``MLXGraph`` instance with vars and nodes registered.
+    """
+    console.print()
+    console.print(Panel(
+        f"[bold]MLXGraph[/] — {len(g._vars)} vars, {len(g._nodes)} nodes\n"
+        "[dim]type 'help' for commands, 'quit' to exit[/]",
+        title="[bold]calyxos mlx inspector[/]",
+        border_style="magenta",
+        padding=(0, 2),
+    ))
+    console.print()
+
+    mlx_cmd_graph(g, "")
+    console.print()
+
+    while True:
+        try:
+            raw = console.input("[bold magenta]mlx>[/] ")
+        except (EOFError, KeyboardInterrupt):
+            console.print()
+            break
+
+        raw = raw.strip()
+        if not raw:
+            continue
+
+        if raw in ("quit", "q", "exit"):
+            break
+
+        parts = raw.split(maxsplit=1)
+        cmd_name = parts[0].lower()
+        cmd_args = parts[1] if len(parts) > 1 else ""
+
+        handler = MLX_COMMANDS.get(cmd_name)
+        if handler is None:
+            console.print(f"[red]unknown command: {cmd_name}[/]  (type 'help')")
+            continue
+
+        handler(g, cmd_args)
         console.print()

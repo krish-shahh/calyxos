@@ -1,8 +1,3 @@
-"""ML/LLM utilities for calyxos.
-
-High-performance computing support for machine learning and scientific computing.
-"""
-
 from calyxos.ml.tensor_memoization import (
     BatchProcessor,
     TensorMemoizer,
@@ -14,3 +9,10 @@ __all__ = [
     "BatchProcessor",
     "TensorNodeAnalyzer",
 ]
+
+try:
+    from calyxos.ml.mlx_graph import MLXGraph, MLXNode, MLXVar
+
+    __all__ += ["MLXGraph", "MLXNode", "MLXVar"]
+except ImportError:
+    pass

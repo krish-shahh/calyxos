@@ -8,7 +8,7 @@ construct a directed acyclic graph that reflects actual method calls.
 """
 
 from calyxos.core.async_support import async_fn
-from calyxos.tui import inspect
+from calyxos.tui import inspect, inspect_mlx
 from calyxos.core.decorator import clear_graph, fn, get_graph, node, set_stored, set_value, stored
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
@@ -32,6 +32,12 @@ from calyxos.ml.tensor_memoization import (
     TensorMemoizer,
     TensorNodeAnalyzer,
 )
+
+# MLX backend (available when mlx is installed)
+try:
+    from calyxos.ml.mlx_graph import MLXGraph, MLXNode, MLXVar
+except ImportError:
+    pass
 from calyxos.storage.backend import StorageBackend
 from calyxos.storage.json_storage import JSONStorage
 from calyxos.storage.sqlite import SQLiteStorage
@@ -77,6 +83,10 @@ __all__ = [
     "TensorMemoizer",
     "BatchProcessor",
     "TensorNodeAnalyzer",
+    # MLX backend (conditional)
+    "MLXGraph",
+    "MLXNode",
+    "MLXVar",
     # Profiling and optimization
     "Profiler",
     "GradientTracker",
@@ -93,4 +103,5 @@ __all__ = [
     "clear_graph",
     # TUI
     "inspect",
+    "inspect_mlx",
 ]

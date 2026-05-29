@@ -1,9 +1,11 @@
 """calyxos CLI entry point.
 
 Usage:
-    calyxos              show version and help
-    calyxos demo         run benchmark + drop into the TUI inspector
-    calyxos demo --no-inspect   run benchmark only (no TUI)
+    calyxos                      show version and help
+    calyxos demo                 run benchmark + drop into the TUI inspector
+    calyxos demo --no-inspect    run benchmark only (no TUI)
+    calyxos mlx-demo             run MLX benchmark + drop into the MLX TUI
+    calyxos mlx-demo --no-inspect  run MLX benchmark only (no TUI)
 """
 
 from __future__ import annotations
@@ -36,6 +38,8 @@ def _print_help() -> None:
         c.print()
         c.print("  [bold cyan]calyxos demo[/]              run benchmark + TUI inspector")
         c.print("  [bold cyan]calyxos demo --no-inspect[/]  run benchmark only")
+        c.print("  [bold cyan]calyxos mlx-demo[/]          MLX incremental benchmark + TUI")
+        c.print("  [bold cyan]calyxos mlx-demo --no-inspect[/]  MLX benchmark only")
         c.print()
         c.print("  [dim]in your code:[/]")
         c.print("    [green]from calyxos import inspect[/]")
@@ -46,6 +50,8 @@ def _print_help() -> None:
         print("reactive computation engine for python\n")
         print("  calyxos demo              run benchmark + TUI inspector")
         print("  calyxos demo --no-inspect  run benchmark only")
+        print("  calyxos mlx-demo          MLX incremental benchmark + TUI")
+        print("  calyxos mlx-demo --no-inspect  MLX benchmark only")
         print()
         print("  in your code:")
         print("    from calyxos import inspect")
@@ -353,6 +359,169 @@ def _run_demo(args: list[str]) -> None:
         tui_inspect(pipe)
 
 
+def _run_mlx_demo(args: list[str]) -> None:
+    if not _check_rich():
+        print("error: the TUI requires 'rich'. install it with:")
+        print("  pip install calyxos[tui]")
+        sys.exit(1)
+
+    try:
+        import mlx.core as mx
+    except ImportError:
+        print("error: mlx is required for the mlx demo. install it with:")
+        print("  pip install calyxos[mlx]")
+        sys.exit(1)
+
+    import gc
+    import time
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich import box
+
+    from calyxos.ml.mlx_graph import MLXGraph
+
+    console = Console(width=76)
+
+    DIM = 512
+    FFN_DIM = DIM * 4
+    SEQ = 256
+    N_ITERS = 10
+
+    console.print()
+    console.print(Panel(
+        "[bold white]calyxos mlx benchmark[/]\n"
+        "[dim]incremental tensor recomputation on apple silicon[/]",
+        border_style="magenta", padding=(1, 2),
+    ))
+    console.print()
+    console.print(f"[bold magenta]pipeline:[/]  tokens -> embed -> ln1 -> attn -> ln2 -> ffn -> proj")
+    console.print(f"[bold magenta]config:[/]    dim={DIM}  seq={SEQ}  ffn={FFN_DIM}")
+    console.print(f"[bold magenta]mutation:[/]  W_up (FFN weight, mid-graph)")
+    console.print()
+
+    # -- build graph --
+    g = MLXGraph()
+    v_tokens = g.var("tokens", mx.random.normal((SEQ, DIM)))
+    v_W_embed = g.var("W_embed", mx.random.normal((DIM, DIM)) * 0.02)
+    v_W_q = g.var("W_q", mx.random.normal((DIM, DIM)) * 0.02)
+    v_W_k = g.var("W_k", mx.random.normal((DIM, DIM)) * 0.02)
+    v_W_v = g.var("W_v", mx.random.normal((DIM, DIM)) * 0.02)
+    v_W_up = g.var("W_up", mx.random.normal((DIM, FFN_DIM)) * 0.02)
+    v_W_down = g.var("W_down", mx.random.normal((FFN_DIM, DIM)) * 0.02)
+    v_W_proj = g.var("W_proj", mx.random.normal((DIM, DIM)) * 0.02)
+
+    def _ln(x: mx.array) -> mx.array:
+        mean = mx.mean(x, axis=-1, keepdims=True)
+        var = mx.var(x, axis=-1, keepdims=True)
+        return (x - mean) * mx.rsqrt(var + 1e-5)
+
+    def _attn(x_ln: mx.array, wq: mx.array, wk: mx.array, wv: mx.array) -> mx.array:
+        Q, K, V = x_ln @ wq, x_ln @ wk, x_ln @ wv
+        scores = (Q @ K.T) * (Q.shape[-1] ** -0.5)
+        return mx.softmax(scores, axis=-1) @ V
+
+    n_embed = g.node("embed", lambda t, w: t @ w, [v_tokens, v_W_embed])
+    n_ln1 = g.node("ln1", lambda x: _ln(x), [n_embed])
+    n_attn = g.node("attn", _attn, [n_ln1, v_W_q, v_W_k, v_W_v])
+    n_attn_res = g.node("attn_res", lambda e, a: e + a, [n_embed, n_attn])
+    n_ln2 = g.node("ln2", lambda x: _ln(x), [n_attn_res])
+    n_ffn = g.node("ffn", lambda x, wu, wd: mx.maximum(x @ wu, 0) @ wd, [n_ln2, v_W_up, v_W_down])
+    n_ffn_res = g.node("ffn_res", lambda x, f: x + f, [n_attn_res, n_ffn])
+    n_proj = g.node("proj", lambda x, w: x @ w, [n_ffn_res, v_W_proj])
+
+    # materialise weights + cold-start
+    mx.eval(*[v.value for v in g._vars.values()])
+    g.eval(n_proj)
+
+    # -- full rebuild function --
+    def full_rebuild() -> mx.array:
+        t = v_tokens.value
+        x = t @ v_W_embed.value
+        mean = mx.mean(x, axis=-1, keepdims=True)
+        var = mx.var(x, axis=-1, keepdims=True)
+        x_ln = (x - mean) * mx.rsqrt(var + 1e-5)
+        Q, K, V = x_ln @ v_W_q.value, x_ln @ v_W_k.value, x_ln @ v_W_v.value
+        scores = (Q @ K.T) * (Q.shape[-1] ** -0.5)
+        attn = mx.softmax(scores, axis=-1) @ V
+        x2 = x + attn
+        mean2 = mx.mean(x2, axis=-1, keepdims=True)
+        var2 = mx.var(x2, axis=-1, keepdims=True)
+        x_ln2 = (x2 - mean2) * mx.rsqrt(var2 + 1e-5)
+        ffn = mx.maximum(x_ln2 @ v_W_up.value, 0) @ v_W_down.value
+        x3 = x2 + ffn
+        out = x3 @ v_W_proj.value
+        mx.eval(out)
+        return out
+
+    # -- benchmark --
+    console.rule("[bold]benchmark — mutate W_up, measure rebuild vs incremental", style="dim")
+    console.print()
+
+    full_times = []
+    incr_times = []
+
+    for _ in range(N_ITERS):
+        new_W_up = mx.random.normal((DIM, FFN_DIM)) * 0.02
+        mx.eval(new_W_up)
+
+        v_W_up.set(new_W_up)
+        gc.collect()
+        t0 = time.perf_counter()
+        full_rebuild()
+        full_times.append((time.perf_counter() - t0) * 1000)
+
+        gc.collect()
+        t0 = time.perf_counter()
+        g.eval(n_proj)
+        incr_times.append((time.perf_counter() - t0) * 1000)
+
+    import statistics
+    full_med = statistics.median(full_times)
+    incr_med = statistics.median(incr_times)
+    speedup = full_med / incr_med if incr_med > 0 else float("inf")
+
+    stale = g.stale_nodes()
+    # After eval, nothing is stale — show what WOULD be stale
+    v_W_up.set(mx.random.normal((DIM, FFN_DIM)) * 0.02)
+    stale_after_set = g.stale_nodes()
+    stale_names = [n.name for n in stale_after_set]
+
+    t = Table(box=box.HEAVY_HEAD, show_edge=False, pad_edge=False)
+    t.add_column("", style="bold", min_width=18)
+    t.add_column("recomputed", justify="center", min_width=14)
+    t.add_column("median", justify="center", min_width=10)
+    t.add_column("speedup", justify="center", min_width=12)
+    t.add_row("full rebuild", f"[red]8 / 8[/]", f"{full_med:.2f}ms", "")
+    t.add_row(
+        "[green]calyxos incr[/]",
+        f"[green]{len(stale_names)} / 8[/]",
+        f"[green]{incr_med:.2f}ms[/]",
+        f"[bold green]{speedup:.1f}x faster[/]",
+    )
+    console.print(t)
+    console.print()
+
+    console.print(Panel(
+        f"[bold white]what happened?[/]\n\n"
+        f"  [bold white]1.[/] built an 8-node transformer pipeline as an MLXGraph\n"
+        f"  [bold white]2.[/] changed [bold yellow]W_up[/] (FFN weight, mid-graph)\n"
+        f"  [bold white]3.[/] full rebuild recomputed [bold red]all 8[/] stages\n"
+        f"  [bold white]4.[/] calyxos recomputed [bold green]only {len(stale_names)}[/]: {', '.join(stale_names)}\n"
+        f"  [bold white]5.[/] arrays stayed lazy — single [bold cyan]mx.eval()[/] at the boundary\n"
+        f"  [bold white]6.[/] no tensor hashing — version counters only\n",
+        title="[bold]results",
+        border_style="magenta", padding=(1, 2),
+    ))
+    console.print()
+
+    # Drop into TUI unless --no-inspect
+    if "--no-inspect" not in args:
+        from calyxos.tui import inspect_mlx
+        inspect_mlx(g)
+
+
 def main() -> None:
     args = sys.argv[1:]
 
@@ -367,6 +536,10 @@ def main() -> None:
 
     if args[0] == "demo":
         _run_demo(args[1:])
+        return
+
+    if args[0] == "mlx-demo":
+        _run_mlx_demo(args[1:])
         return
 
     # Unknown command
