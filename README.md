@@ -45,20 +45,23 @@ pip install -e ".[dev]"
 
 **Requirements:** Python 3.10+. Zero runtime dependencies (stdlib only).
 
-For the interactive TUI inspector:
+Optional extras:
 
 ```bash
-pip install calyxos[tui]
+pip install calyxos[tui]    # interactive TUI inspector (rich)
+pip install calyxos[mlx]    # MLX tensor backend (Apple Silicon)
+pip install calyxos[viz]    # Graphviz visualization
 ```
 
 ## TUI Inspector
 
 calyxos ships with a built-in terminal UI for exploring computation graphs interactively.
 
-**Run the demo** (benchmark + inspector):
+**Run the demos** (benchmark + inspector):
 
 ```bash
-calyxos demo
+calyxos demo          # core reactive graph benchmark + TUI
+calyxos mlx-demo      # MLX tensor backend benchmark + TUI
 ```
 
 **Inspect your own objects** in code:
@@ -91,6 +94,52 @@ inspect(m)       # drop into the TUI
 | `stats` | Graph statistics |
 | `invalid` | List all dirty nodes |
 | `quit` | Exit |
+
+## MLX Backend (Apple Silicon)
+
+calyxos includes an execution backend for [MLX](https://github.com/ml-explore/mlx) that brings incremental recomputation to tensor workloads on Apple Silicon. When you change one weight in an 8-stage transformer pipeline, only the affected stages rerun. Everything else returns cached lazy arrays. A single `mx.eval()` call fuses the result.
+
+```bash
+pip install calyxos[mlx]
+```
+
+```python
+from calyxos.ml.mlx_graph import MLXGraph
+import mlx.core as mx
+
+g = MLXGraph()
+
+# register inputs
+x = g.var("x", mx.ones((4, 4)))
+w = g.var("w", mx.random.normal((4, 4)))
+
+# register computation nodes
+h = g.node("h", lambda: g["x"].value @ g["w"].value, inputs=["x", "w"])
+out = g.node("out", lambda: mx.relu(g["h"].value), inputs=["h"])
+
+# evaluate (single mx.eval call, fused on GPU/ANE)
+g.eval("out")
+print(out.value)
+
+# mutate one input — only downstream nodes recompute
+g["w"].set(mx.random.normal((4, 4)))
+print(g.stale_nodes())   # ['h', 'out'] — x is unchanged
+g.eval("out")             # only h and out rerun
+```
+
+**Run the MLX demo** (simplified transformer benchmark + TUI):
+
+```bash
+calyxos mlx-demo
+```
+
+The MLX TUI inspector has its own commands tailored for tensor graphs (`set <var> random`, `eval`, `stale`, `flow`).
+
+**Benchmark results** (dim=512, seq=256, Apple Silicon):
+- ~1.5x speedup when mutating a single mid-graph weight
+- ~30% less peak Metal memory vs full rebuild
+
+The backend uses version-based staleness detection (no array hashing), preserves MLX's lazy evaluation semantics, and never calls `mx.eval()` until you ask for it.
 
 ## Core Concepts
 
@@ -382,8 +431,9 @@ src/calyxos/
 │   ├── backend.py           # StorageBackend protocol
 │   ├── sqlite.py            # SQLiteStorage
 │   └── json_storage.py      # JSONStorage
-├── ml/                      # ML extensions (experimental)
-│   └── tensor_memoization.py
+├── ml/                      # ML extensions
+│   ├── mlx_graph.py         # MLX execution backend (MLXGraph, MLXVar, MLXNode)
+│   └── tensor_memoization.py # Tensor memoization utilities
 └── utils/                   # Debugging, profiling, analysis
     ├── debug.py             # GraphDebugger
     ├── profiler.py          # Performance profiling
@@ -415,6 +465,9 @@ python examples/financial_instrument.py
 
 # Graphviz visualization (requires: pip install graphviz)
 python examples/graph_visualization.py
+
+# MLX incremental benchmark (requires: pip install calyxos[mlx])
+python benchmarks/mlx_incremental.py
 ```
 
 ## Development
@@ -433,7 +486,7 @@ mypy src/calyxos/
 ruff check src/calyxos/
 ```
 
-The test suite includes 91 tests covering:
+The test suite includes 109 tests covering:
 
 - Core memoization and argument handling
 - Dependency tracking (conditional, diamond, cross-object)
