@@ -15,6 +15,7 @@ core: Core {
   reverse: "NodeChange\nreverse.py"
   persistence: "save / load\npersistence.py"
   introspection: "is_overridden / get_node_flags\nintrospection.py"
+  async: "@async_fn / @async_map_node\nasync_support.py"
 }
 
 # Graph Layer
@@ -42,6 +43,28 @@ storage: Storage {
   json: "JSONStorage"
 }
 
+# CLI / TUI Layer
+cli: CLI / TUI {
+  style.fill: "#fde8f0"
+  headless: "Headless commands\ncli.py"
+  inspector: "Interactive inspector\ntui.py"
+}
+
+# ML Layer
+ml: ML Extensions {
+  style.fill: "#e8fdf0"
+  mlx: "MLXGraph / MLXVar\nmlx_graph.py"
+  tensor: "TensorMemoizer\ntensor_memoization.py"
+}
+
+# Utils Layer
+utils: Utils {
+  style.fill: "#f5f5f0"
+  debug: "GraphDebugger\ndebug.py"
+  profiler: "Profiler\nprofiler.py"
+  distributed: "DistributedExecutor\ndistributed.py"
+}
+
 # Flows
 core.decorator -> graph.computation: creates/evaluates nodes
 core.decorator -> tracking.evalstack: push/pop frames
@@ -55,3 +78,8 @@ storage.backend -> storage.sqlite
 storage.backend -> storage.json
 core.reverse -> core.decorator: reverse set_value
 core.flags -> graph.node: flags field
+cli.headless -> storage.sqlite: loads persisted graph
+cli.inspector -> graph.computation: reads graph state
+ml.mlx -> graph.node: version-based staleness
+utils.debug -> graph.computation: introspection
+utils.profiler -> graph.computation: hooks evaluate_node
