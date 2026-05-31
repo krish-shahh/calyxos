@@ -640,8 +640,8 @@ Node colors indicate state at a glance:
 
 Dashed edges indicate cross-object dependencies.
 
-![Portfolio graph](docs/portfolio_graph.png)
-![Invalid nodes after mutation](docs/portfolio_invalid.png)
+![Portfolio graph](https://raw.githubusercontent.com/krish-shahh/calyxos/main/docs/portfolio_graph.png)
+![Invalid nodes after mutation](https://raw.githubusercontent.com/krish-shahh/calyxos/main/docs/portfolio_invalid.png)
 
 Jupyter notebooks get inline SVG rendering automatically via `_repr_svg_`.
 
@@ -672,7 +672,7 @@ print(get_node_flags(model, "temperature"))
 
 calyxos is organized into four layers:
 
-![calyxos Architecture](docs/architecture.png)
+![calyxos Architecture](https://raw.githubusercontent.com/krish-shahh/calyxos/main/docs/architecture.png)
 
 D2 sources live in `docs/` — re-render with `d2 docs/architecture.d2 docs/architecture.png`.
 

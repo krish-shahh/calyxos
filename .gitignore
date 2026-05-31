@@ -143,3 +143,6 @@ ehthumbs.db
 # Test databases
 *.db
 test_*.db
+
+# Marketing (not shipped)
+marketing.md
