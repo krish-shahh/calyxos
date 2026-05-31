@@ -53,6 +53,23 @@ pip install calyxos[mlx]    # MLX tensor backend (Apple Silicon)
 pip install calyxos[viz]    # Graphviz visualization
 ```
 
+## Benchmarks
+
+Measured on a simulated pipeline where each node sleeps 200ms. The fan-out graph has 4 independent branches (API, auth, database, UI) each with 3 transforms, merging to one report node (13 derived nodes total). Only the API input is changed between runs.
+
+| scenario | engine | computed | skipped | time | speedup |
+|---|---|---:|---:|---:|---:|
+| **cold start** | calyxos | 13 | 0 | 2,658ms | |
+| | naive | 13 | 0 | 2,645ms | |
+| **mutate 1 of 4 inputs** | **calyxos** | **4** | **9** | **818ms** | **3.2x** |
+| | naive | 13 | 0 | 2,649ms | |
+| **no-change rerun** | **calyxos** | **0** | **13** | **0.1ms** | **32,011x** |
+| | naive | 13 | 0 | 2,645ms | |
+
+Cold start costs the same for both. After that, calyxos recomputes only the affected branch (3 nodes) plus the merge node. The other 9 nodes are served from cache. On a no-change rerun, every node is cached and the result returns in microseconds.
+
+Reproduce with `python test_efficiency.py` from the repo root.
+
 ## TUI Inspector
 
 calyxos ships with a built-in terminal UI for exploring computation graphs interactively.

@@ -1,0 +1,85 @@
+######################################################################
+calyxos efficiency benchmark
+######################################################################
+node cost: 200ms sleep per derived node
+
+======================================================================
+TEST 1: Linear pipeline  (codebase -> parse -> analysis -> plan -> output)
+======================================================================
+
+— Phase 1: Cold start ————————————————————————————————————————————————
+
+  calyxos:  4 nodes computed      819ms
+  naive:    4 nodes computed      816ms
+
+— Phase 2: Mutate one input, rerun ———————————————————————————————————
+
+  calyxos:  4 nodes computed,  0 skipped      820ms
+  naive:    4 nodes computed,  0 skipped      812ms
+
+— Phase 3: No change, rerun (pure cache hit) —————————————————————————
+
+  calyxos:  0 nodes computed,  4 skipped      0.0ms
+  naive:    4 nodes computed,  0 skipped      816ms
+
+======================================================================
+TEST 2: Fan-out pipeline  (4 branches x 3 transforms + 1 merge = 13 derived nodes)
+======================================================================
+
+— Phase 1: Cold start ————————————————————————————————————————————————
+
+  calyxos: 13 nodes computed     2658ms
+  naive:   13 nodes computed     2645ms
+
+— Phase 2: Mutate one input, rerun ———————————————————————————————————
+
+  calyxos:  4 nodes computed,  9 skipped      818ms
+  naive:   13 nodes computed,  0 skipped     2649ms
+
+— Phase 3: No change, rerun (pure cache hit) —————————————————————————
+
+  calyxos:  0 nodes computed, 13 skipped      0.1ms
+  naive:   13 nodes computed,  0 skipped     2645ms
+
+
+==============================================================================
+COMBINED RESULTS
+==============================================================================
+
+scenario                             engine     computed  skipped      time  speedup
+------------------------------------------------------------------------------------
+linear: cold start                   calyxos           4        0     819ms         
+                                     naive             4        0     816ms         
+------------------------------------------------------------------------------------
+linear: mutate codebase              calyxos           4        0     820ms     1.0x
+                                     naive             4        0     812ms         
+------------------------------------------------------------------------------------
+linear: no-change rerun              calyxos           0        4     0.0ms   32481x
+                                     naive             4        0     816ms         
+------------------------------------------------------------------------------------
+fan-out: cold start                  calyxos          13        0    2658ms         
+                                     naive            13        0    2645ms         
+------------------------------------------------------------------------------------
+fan-out: mutate 1 of 4 inputs        calyxos           4        9     818ms     3.2x
+                                     naive            13        0    2649ms         
+------------------------------------------------------------------------------------
+fan-out: no-change rerun             calyxos           0       13     0.1ms   32011x
+                                     naive            13        0    2645ms         
+------------------------------------------------------------------------------------
+
+CORRECTNESS CHECKS
+  [PASS] linear cold: all 4 derived nodes compute
+  [PASS] linear mutation: all 4 recompute (root changed)
+  [PASS] linear no-change: 0 recomputes
+  [PASS] linear results correct
+  [PASS] fan-out cold: all 13 derived nodes compute
+  [PASS] fan-out mutation: only 4 recompute (1 branch + merge)
+  [PASS] fan-out mutation: recomputed nodes are api branch + report
+  [PASS] fan-out no-change: 0 recomputes
+  [PASS] fan-out mutation speedup > 2x
+  [PASS] fan-out cache hit speedup > 100x
+
+checks: 10/10 passed
+
+no errors detected.
+
