@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "calyxos"
-version = "0.4.2"
+version = "0.4.3"
 description = "Reactive dependency graph computation engine with incremental recomputation, contexts, layers, and cross-object tracking"
 readme = "README.md"
 requires-python = ">=3.10"
