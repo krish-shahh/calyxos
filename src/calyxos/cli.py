@@ -6,11 +6,113 @@ Usage:
     calyxos demo --no-inspect    run benchmark only (no TUI)
     calyxos mlx-demo             run MLX benchmark + drop into the MLX TUI
     calyxos mlx-demo --no-inspect  run MLX benchmark only (no TUI)
+
+Headless graph commands (operate on a persisted SQLite graph):
+    calyxos graph --db <path> --key <id>
+    calyxos stats --db <path> --key <id>
+    calyxos set   --db <path> --key <id> <node> <json-value>
+    calyxos eval  --db <path> --key <id> <node>
+    calyxos invalid / errors / retry / gc --db <path> --key <id>
+    calyxos flow / tree <node> / node <node> --db <path> --key <id>
 """
 
 from __future__ import annotations
 
 import sys
+
+
+_HEADLESS_COMMANDS = {
+    "set", "eval", "stats", "invalid", "graph", "node",
+    "tree", "flow", "errors", "retry", "gc",
+}
+
+
+def _extract_option(
+    args: list[str], flag: str,
+) -> tuple[str | None, list[str]]:
+    """Extract a ``--flag value`` pair from *args*, returning (value, rest)."""
+    remaining: list[str] = []
+    value: str | None = None
+    i = 0
+    while i < len(args):
+        if args[i] == flag and i + 1 < len(args):
+            value = args[i + 1]
+            i += 2
+        elif args[i].startswith(flag + "="):
+            value = args[i][len(flag) + 1:]
+            i += 1
+        else:
+            remaining.append(args[i])
+            i += 1
+    return value, remaining
+
+
+def _load_graph(db_path: str, key: str) -> object:
+    """Load stored values from SQLiteStorage and return a proxy object.
+
+    The proxy has a populated ``ComputationGraph`` so the TUI command
+    functions can inspect it without the original class definition.
+    """
+    from pathlib import Path
+
+    from calyxos.core.decorator import get_graph
+    from calyxos.core.flags import NodeFlag
+    from calyxos.graph.node import NodeType
+    from calyxos.storage.sqlite import SQLiteStorage
+
+    if not Path(db_path).exists():
+        print(f"error: database not found: {db_path}")
+        sys.exit(1)
+
+    storage = SQLiteStorage(db_path)
+    stored_values = storage.load(key)
+    if stored_values is None:
+        print(f"error: no graph found for key '{key}' in {db_path}")
+        sys.exit(1)
+
+    # Dynamic class so obj.__class__.__name__ shows the key in TUI output
+    proxy_cls = type(key, (), {})
+    obj = proxy_cls()
+
+    graph = get_graph(obj)
+    for method_name, value in stored_values.items():
+        nd = graph.get_or_create_node(
+            method_name=method_name,
+            args_hash=0,
+            node_type=NodeType.STORED,
+            compute_fn=lambda v=value: v,
+            flags=NodeFlag.STORED,
+        )
+        nd.value = value
+        nd.is_valid = True
+
+    return obj
+
+
+def _run_headless(cmd_name: str, cmd_args: list[str]) -> None:
+    """Dispatch a headless TUI command against a persisted graph."""
+    if not _check_rich():
+        print("error: rich is required. install with: pip install calyxos[tui]")
+        sys.exit(1)
+
+    db_path, cmd_args = _extract_option(cmd_args, "--db")
+    key, cmd_args = _extract_option(cmd_args, "--key")
+
+    if not db_path or not key:
+        print(f"error: --db <path> and --key <graph-id> are required")
+        print(f"  calyxos {cmd_name} --db <path> --key <id> [args...]")
+        sys.exit(1)
+
+    obj = _load_graph(db_path, key)
+    remaining = " ".join(cmd_args)
+
+    from calyxos.tui import COMMANDS
+
+    handler = COMMANDS[cmd_name]
+    if cmd_name == "set":
+        handler(obj, remaining, safe=True)
+    else:
+        handler(obj, remaining)
 
 
 def _check_rich() -> bool:
@@ -41,6 +143,11 @@ def _print_help() -> None:
         c.print("  [bold cyan]calyxos mlx-demo[/]          MLX incremental benchmark + TUI")
         c.print("  [bold cyan]calyxos mlx-demo --no-inspect[/]  MLX benchmark only")
         c.print()
+        c.print("  [bold cyan]headless graph commands[/] [dim](require --db and --key):[/]")
+        c.print("    [bold cyan]calyxos <cmd> --db <path> --key <id> [args][/]")
+        c.print("    [dim]graph, flow, tree <n>, node <n>, set <n> <v>,[/]")
+        c.print("    [dim]eval <n>, stats, invalid, errors, retry, gc[/]")
+        c.print()
         c.print("  [dim]in your code:[/]")
         c.print("    [green]from calyxos import inspect[/]")
         c.print("    [green]inspect(my_object)[/]           [dim]# drop into the TUI[/]")
@@ -52,6 +159,11 @@ def _print_help() -> None:
         print("  calyxos demo --no-inspect  run benchmark only")
         print("  calyxos mlx-demo          MLX incremental benchmark + TUI")
         print("  calyxos mlx-demo --no-inspect  MLX benchmark only")
+        print()
+        print("  headless graph commands (require --db and --key):")
+        print("    calyxos <cmd> --db <path> --key <id> [args]")
+        print("    graph, flow, tree <n>, node <n>, set <n> <v>,")
+        print("    eval <n>, stats, invalid, errors, retry, gc")
         print()
         print("  in your code:")
         print("    from calyxos import inspect")
@@ -540,6 +652,10 @@ def main() -> None:
 
     if args[0] == "mlx-demo":
         _run_mlx_demo(args[1:])
+        return
+
+    if args[0] in _HEADLESS_COMMANDS:
+        _run_headless(args[0], args[1:])
         return
 
     # Unknown command

@@ -9,6 +9,7 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import readline  # noqa: F401 — enables arrow-key history in input()
 from typing import Any
 
@@ -322,8 +323,14 @@ def cmd_flow(obj: Any, _args: str) -> None:
     ))
 
 
-def cmd_set(obj: Any, args: str) -> None:
-    """Set a node value and show what was invalidated."""
+def cmd_set(obj: Any, args: str, *, safe: bool = False) -> None:
+    """Set a node value and show what was invalidated.
+
+    Args:
+        safe: When True, parse values with ``json.loads`` instead of
+              ``eval`` to avoid arbitrary code execution in non-interactive
+              contexts (e.g. CLI invoked by a subagent).
+    """
     parts = args.strip().split(maxsplit=1)
     if len(parts) != 2:
         console.print("[red]usage: set <name> <value>[/]")
@@ -332,7 +339,7 @@ def cmd_set(obj: Any, args: str) -> None:
     name, raw_val = parts
 
     try:
-        val = eval(raw_val)  # noqa: S307 — intentional for interactive use
+        val = json.loads(raw_val) if safe else eval(raw_val)  # noqa: S307
     except Exception as e:
         console.print(f"[red]bad value: {e}[/]")
         return
