@@ -117,8 +117,11 @@ ignore = [
     "RUF005", # consider unpacking instead of concatenation
     "RUF022", # __all__ not sorted (intentionally grouped by category)
     "RUF023", # __slots__ not sorted (pre-existing)
-    "B904",   # raise from within except (pre-existing)
     "B007",   # unused loop variable (pre-existing)
+    "B039",   # mutable ContextVar default (pre-existing)
+    "B904",   # raise from within except (pre-existing)
+    "B905",   # zip without strict= (pre-existing)
+    "C420",   # unnecessary dict comprehension (pre-existing)
 ]
 
 [tool.ruff.lint.isort]
