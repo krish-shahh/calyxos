@@ -70,6 +70,65 @@ Cold start costs the same for both. After that, calyxos recomputes only the affe
 
 Reproduce with `python test_efficiency.py` from the repo root.
 
+## Claude Code / AI Agents
+
+AI coding agents hit a common scaling problem: when an orchestrator fans work out to subagents, each subagent redundantly recomputes the same expensive intermediate results. The usual workaround is writing state to files (`INVESTIGATION.md`, `PLAN.md`) and passing them between agents, but that's fragile, unstructured, and has no dependency tracking.
+
+calyxos replaces the file-passing hack with a shared computation graph backed by SQLite. One agent writes results into the graph, other agents read cached values without recomputing anything. Dependency tracking means that when an input changes, only the affected branch recomputes while unrelated branches return instantly from cache.
+
+```python
+from calyxos import node, NodeFlag, set_value
+from calyxos.storage.sqlite import SQLiteStorage
+from calyxos.core.persistence import save_object, load_object
+
+class CodeReviewPipeline:
+    @node(NodeFlag.STORED)
+    def codebase(self) -> str:
+        return "main@abc123"
+
+    @node()
+    def parse(self) -> dict:
+        # expensive: AST parsing, symbol extraction
+        return parse_codebase(self.codebase())
+
+    @node()
+    def analysis(self) -> dict:
+        return run_analysis(self.parse())
+
+    @node()
+    def plan(self) -> list:
+        return generate_plan(self.analysis())
+
+# Investigator agent: build the graph and persist it
+pipeline = CodeReviewPipeline()
+pipeline.plan()  # materialize all nodes
+save_object(pipeline, SQLiteStorage(".cache/review.db"), "review-1")
+
+# Executor agent (separate process): load and read cached results
+pipeline2 = CodeReviewPipeline()
+load_object(pipeline2, SQLiteStorage(".cache/review.db"), "review-1")
+pipeline2.plan()  # instant — served from cache, 0 recomputation
+
+# Later: codebase changed, only affected nodes recompute
+set_value(pipeline, "codebase", "main@def456")
+pipeline.plan()  # recomputes parse -> analysis -> plan, skips unaffected branches
+```
+
+The headless CLI lets subagents query graph state without running Python:
+
+```bash
+# Check if anything needs recomputation
+calyxos stats --db .cache/review.db --key review-1
+
+# Read a specific node's cached value
+calyxos node analysis --db .cache/review.db --key review-1
+
+# Set an input and see what gets invalidated
+calyxos set codebase '"main@def456"' --db .cache/review.db --key review-1
+```
+
+In benchmarks, a no-change rerun returns in 0.1ms vs 2,645ms naive (32,011x faster). Mutating 1 of 4 inputs in a fan-out graph recomputes 4 of 13 nodes (3.2x faster) while the other 9 are served from cache.
+
 ## TUI Inspector
 
 calyxos ships with a built-in terminal UI for exploring computation graphs interactively.
@@ -114,6 +173,26 @@ inspect(m)       # drop into the TUI
 | `retry` | Clear error state for recomputation |
 | `gc` | Remove orphaned per-element map nodes |
 | `quit` | Exit |
+
+**Headless CLI** (non-interactive, for scripts and subagents):
+
+All TUI commands are also available as CLI subcommands that operate on a persisted SQLite graph. Every command requires `--db <path>` and `--key <graph-id>`:
+
+```bash
+calyxos graph   --db data.db --key my-graph        # show all nodes
+calyxos stats   --db data.db --key my-graph        # graph statistics
+calyxos node    --db data.db --key my-graph output  # inspect one node
+calyxos tree    --db data.db --key my-graph output  # dependency tree
+calyxos flow    --db data.db --key my-graph        # layered DAG view
+calyxos set     --db data.db --key my-graph x 42   # set value (uses json.loads, not eval)
+calyxos eval    --db data.db --key my-graph output  # evaluate a node
+calyxos invalid --db data.db --key my-graph        # list dirty nodes
+calyxos errors  --db data.db --key my-graph        # list errored nodes
+calyxos retry   --db data.db --key my-graph        # clear errors for retry
+calyxos gc      --db data.db --key my-graph        # remove orphaned map nodes
+```
+
+`--db` and `--key` can appear anywhere in the argument list. Values for `set` are parsed with `json.loads` (not `eval`) for safety when called programmatically.
 
 ## MLX Backend (Apple Silicon)
 
