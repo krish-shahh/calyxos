@@ -15,7 +15,6 @@ except ImportError:
     np = None  # type: ignore
 
 from calyxos.core.decorator import get_graph
-from calyxos.graph.node import NodeType
 
 
 def _tensor_content_hash(tensor: Any) -> str:

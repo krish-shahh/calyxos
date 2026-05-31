@@ -111,7 +111,13 @@ select = [
     "RUF",  # ruff specific
 ]
 ignore = [
-    "E501",  # line too long (handled by formatter)
+    "E501",   # line too long (handled by formatter)
+    "RUF002", # ambiguous unicode in docstrings (en-dashes)
+    "RUF003", # ambiguous unicode in comments (en-dashes)
+    "RUF005", # consider unpacking instead of concatenation
+    "B904",   # raise from within except (pre-existing)
+    "UP038",  # use X | Y in isinstance (pre-existing)
+    "B007",   # unused loop variable (pre-existing)
 ]
 
 [tool.ruff.lint.isort]

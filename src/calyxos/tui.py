@@ -13,11 +13,11 @@ import json
 import readline  # noqa: F401 — enables arrow-key history in input()
 from typing import Any
 
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
-from rich import box
 
 from calyxos.core.decorator import get_graph, set_value
 from calyxos.core.flags import NodeFlag
@@ -339,7 +339,7 @@ def cmd_set(obj: Any, args: str, *, safe: bool = False) -> None:
     name, raw_val = parts
 
     try:
-        val = json.loads(raw_val) if safe else eval(raw_val)  # noqa: S307
+        val = json.loads(raw_val) if safe else eval(raw_val)
     except Exception as e:
         console.print(f"[red]bad value: {e}[/]")
         return
@@ -578,7 +578,6 @@ def _mlx_node_badge(name: str, kind: str, stale: bool) -> str:
 
 
 def mlx_cmd_graph(g: Any, _args: str) -> None:
-    from calyxos.ml.mlx_graph import MLXNode, MLXVar
 
     t = Table(
         box=box.ROUNDED,
@@ -620,7 +619,6 @@ def mlx_cmd_graph(g: Any, _args: str) -> None:
 
 
 def mlx_cmd_flow(g: Any, _args: str) -> None:
-    from calyxos.ml.mlx_graph import MLXNode, MLXVar
 
     # Build adjacency for topological layering
     all_names: list[str] = list(g._vars.keys()) + list(g._topo_order)
@@ -683,7 +681,6 @@ def mlx_cmd_flow(g: Any, _args: str) -> None:
 
 
 def mlx_cmd_node(g: Any, args: str) -> None:
-    from calyxos.ml.mlx_graph import MLXNode, MLXVar
 
     name = args.strip()
     if not name:
@@ -842,7 +839,7 @@ def mlx_cmd_stats(g: Any, _args: str) -> None:
 
 def mlx_cmd_tree(g: Any, args: str) -> None:
     """Show dependency tree for an MLX node."""
-    from calyxos.ml.mlx_graph import MLXVar, MLXNode
+    from calyxos.ml.mlx_graph import MLXNode, MLXVar
 
     name = args.strip()
     if not name:

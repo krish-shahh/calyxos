@@ -44,7 +44,7 @@ def enable_dir(obj: Any) -> None:
 
     # Bind the new __dir__ method to the object
     # Note: we're dynamically setting __dir__, which is technically allowed
-    setattr(obj, "__dir__", calyxos_dir)
+    obj.__dir__ = calyxos_dir
 
 
 def get_calyxos_methods(obj: Any) -> dict[str, dict[str, Any]]:

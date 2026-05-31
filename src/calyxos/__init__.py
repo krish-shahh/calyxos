@@ -8,7 +8,16 @@ construct a directed acyclic graph that reflects actual method calls.
 """
 
 from calyxos.core.async_support import async_fn, async_map_node
-from calyxos.core.decorator import clear_graph, fn, get_graph, map_node, node, set_stored, set_value, stored
+from calyxos.core.decorator import (
+    clear_graph,
+    fn,
+    get_graph,
+    map_node,
+    node,
+    set_stored,
+    set_value,
+    stored,
+)
 from calyxos.core.flags import CanOverride, CanSet, NodeFlag
 from calyxos.core.flags import Stored as StoredFlag
 from calyxos.core.introspection import (
@@ -22,7 +31,6 @@ from calyxos.core.introspection import (
 )
 from calyxos.core.markers import Stored
 from calyxos.core.reverse import NodeChange
-from calyxos.tracking.disconnect import disconnect
 from calyxos.graph.graph import ComputationGraph
 from calyxos.graph.layer import Layer
 from calyxos.graph.node import Node
@@ -31,6 +39,7 @@ from calyxos.ml.tensor_memoization import (
     TensorMemoizer,
     TensorNodeAnalyzer,
 )
+from calyxos.tracking.disconnect import disconnect
 
 # MLX backend (available when mlx is installed)
 try:

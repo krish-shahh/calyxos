@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from calyxos.core.decorator import get_graph
-from calyxos.graph.node import NodeType
 
 
 class NodeExecutionPlan:

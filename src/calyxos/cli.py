@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import sys
 
-
 _HEADLESS_COMMANDS = {
     "set", "eval", "stats", "invalid", "graph", "node",
     "tree", "flow", "errors", "retry", "gc",
@@ -99,7 +98,7 @@ def _run_headless(cmd_name: str, cmd_args: list[str]) -> None:
     key, cmd_args = _extract_option(cmd_args, "--key")
 
     if not db_path or not key:
-        print(f"error: --db <path> and --key <graph-id> are required")
+        print("error: --db <path> and --key <graph-id> are required")
         print(f"  calyxos {cmd_name} --db <path> --key <id> [args...]")
         sys.exit(1)
 
@@ -169,7 +168,7 @@ def _print_help() -> None:
         print("    from calyxos import inspect")
         print("    inspect(my_object)")
         print()
-        print(f"  note: install 'rich' for the TUI: pip install calyxos[tui]")
+        print("  note: install 'rich' for the TUI: pip install calyxos[tui]")
         print()
 
 
@@ -183,10 +182,10 @@ def _run_demo(args: list[str]) -> None:
     import math
     import time
 
+    from rich import box
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
-    from rich import box
 
     from calyxos import NodeFlag, get_graph, node, set_value
 
@@ -312,9 +311,9 @@ def _run_demo(args: list[str]) -> None:
         border_style="blue", padding=(1, 2),
     ))
     console.print()
-    console.print(f"[bold cyan]graph:[/]   8 input streams x 3 transforms -> 1 output")
+    console.print("[bold cyan]graph:[/]   8 input streams x 3 transforms -> 1 output")
     console.print(f"[bold cyan]nodes:[/]   {TOTAL} derived nodes, ~{WORK_MS}ms each")
-    console.print(f"[bold cyan]change:[/]  1 input out of 8\n")
+    console.print("[bold cyan]change:[/]  1 input out of 8\n")
 
     # Phase 1
     console.rule("[bold]phase 1 — first computation", style="dim")
@@ -378,7 +377,7 @@ def _run_demo(args: list[str]) -> None:
     t2.add_column("skipped", justify="center", min_width=10)
     t2.add_column("time", justify="center", min_width=10)
     t2.add_column("speedup", justify="center", min_width=12)
-    t2.add_row("naive", f"[red]{nv_count} / {TOTAL}[/]", f"[red]0[/]", f"{t_nv_upd:.0f}ms", "")
+    t2.add_row("naive", f"[red]{nv_count} / {TOTAL}[/]", "[red]0[/]", f"{t_nv_upd:.0f}ms", "")
     t2.add_row(
         "[green]calyxos[/]",
         f"[green]{cx_count} / {TOTAL}[/]",
@@ -435,7 +434,7 @@ def _run_demo(args: list[str]) -> None:
     t3.add_column("nodes", justify="center", min_width=8)
     t3.add_column("time", justify="center", min_width=12)
     t3.add_column("vs naive", justify="center", min_width=12)
-    t3.add_row("naive (10 reruns)", f"[red]250[/]", f"{t_nv_scen:.0f}ms", "")
+    t3.add_row("naive (10 reruns)", "[red]250[/]", f"{t_nv_scen:.0f}ms", "")
     t3.add_row("[green]calyxos (10 layers)[/]", f"[green]{cx_scen_count}[/]", f"[green]{t_cx_scen:.0f}ms[/]", f"[green]{scen_speedup:.1f}x[/]")
     re_str = f"{t_reentry:.1f}ms" if t_reentry >= 0.1 else f"{t_reentry * 1000:.0f}us"
     t3.add_row(
@@ -487,10 +486,10 @@ def _run_mlx_demo(args: list[str]) -> None:
     import gc
     import time
 
+    from rich import box
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
-    from rich import box
 
     from calyxos.ml.mlx_graph import MLXGraph
 
@@ -508,9 +507,9 @@ def _run_mlx_demo(args: list[str]) -> None:
         border_style="magenta", padding=(1, 2),
     ))
     console.print()
-    console.print(f"[bold magenta]pipeline:[/]  tokens -> embed -> ln1 -> attn -> ln2 -> ffn -> proj")
+    console.print("[bold magenta]pipeline:[/]  tokens -> embed -> ln1 -> attn -> ln2 -> ffn -> proj")
     console.print(f"[bold magenta]config:[/]    dim={DIM}  seq={SEQ}  ffn={FFN_DIM}")
-    console.print(f"[bold magenta]mutation:[/]  W_up (FFN weight, mid-graph)")
+    console.print("[bold magenta]mutation:[/]  W_up (FFN weight, mid-graph)")
     console.print()
 
     # -- build graph --
@@ -594,7 +593,7 @@ def _run_mlx_demo(args: list[str]) -> None:
     incr_med = statistics.median(incr_times)
     speedup = full_med / incr_med if incr_med > 0 else float("inf")
 
-    stale = g.stale_nodes()
+    g.stale_nodes()
     # After eval, nothing is stale — show what WOULD be stale
     v_W_up.set(mx.random.normal((DIM, FFN_DIM)) * 0.02)
     stale_after_set = g.stale_nodes()
@@ -605,7 +604,7 @@ def _run_mlx_demo(args: list[str]) -> None:
     t.add_column("recomputed", justify="center", min_width=14)
     t.add_column("median", justify="center", min_width=10)
     t.add_column("speedup", justify="center", min_width=12)
-    t.add_row("full rebuild", f"[red]8 / 8[/]", f"{full_med:.2f}ms", "")
+    t.add_row("full rebuild", "[red]8 / 8[/]", f"{full_med:.2f}ms", "")
     t.add_row(
         "[green]calyxos incr[/]",
         f"[green]{len(stale_names)} / 8[/]",

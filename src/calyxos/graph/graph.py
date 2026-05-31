@@ -7,6 +7,9 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from calyxos.graph.context import GraphContext
+
 from calyxos.core.flags import NodeFlag
 from calyxos.graph.node import Node, NodeType
 from calyxos.tracking.context import (
@@ -329,7 +332,7 @@ class ComputationGraph:
     # Context system (Phase 2)
     # ------------------------------------------------------------------
 
-    def context(self) -> "GraphContext":
+    def context(self) -> GraphContext:
         """Create a new override context.
 
         Usage::
@@ -462,7 +465,7 @@ class ComputationGraph:
     # Layer system (Phase 3)
     # ------------------------------------------------------------------
 
-    def layer(self, name: str = "") -> "Layer":
+    def layer(self, name: str = "") -> Layer:
         """Create a new computation layer.
 
         Usage::
@@ -480,7 +483,7 @@ class ComputationGraph:
 
         return Layer(name=name, _graph=self)
 
-    def _enter_layer(self, layer: "Layer") -> None:
+    def _enter_layer(self, layer: Layer) -> None:
         with self._lock:
             # Save entire graph state before applying layer
             if not layer._base_snapshot:
@@ -509,7 +512,7 @@ class ComputationGraph:
 
             self._layer_stack.append(layer)
 
-    def _exit_layer(self, layer: "Layer") -> None:
+    def _exit_layer(self, layer: Layer) -> None:
         with self._lock:
             # Save the current state as the layer's snapshot
             layer._snapshot = {
@@ -641,7 +644,6 @@ class ComputationGraph:
         Independent children are evaluated concurrently with
         ``asyncio.gather``.
         """
-        import asyncio
         import inspect
 
         if recursion_guard is None:

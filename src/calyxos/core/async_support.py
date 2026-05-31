@@ -101,7 +101,8 @@ def async_map_node(source: str) -> Callable[[F], F]:
             async def fetched(self, url: str) -> dict:
                 ...  # async HTTP call
     """
-    from calyxos.core.decorator import _compute_args_hash as sync_hash, get_graph
+    from calyxos.core.decorator import _compute_args_hash as sync_hash
+    from calyxos.core.decorator import get_graph
     from calyxos.core.flags import NodeFlag
 
     def decorator(func: F) -> F:

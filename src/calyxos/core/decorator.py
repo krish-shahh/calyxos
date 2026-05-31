@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import hashlib
 from collections.abc import Callable
-from typing import Any, TypeVar, cast, overload
+from typing import Any, TypeVar, cast
 
 from calyxos.core.flags import NodeFlag
 from calyxos.graph.graph import ComputationGraph

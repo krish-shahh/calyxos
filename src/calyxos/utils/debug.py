@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from calyxos.core.decorator import get_graph
@@ -632,14 +631,14 @@ class GraphDebugger:
         html_bytes = self.to_html(title=title).encode("utf-8")
 
         class _Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # noqa: N802
+            def do_GET(self) -> None:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(html_bytes)))
                 self.end_headers()
                 self.wfile.write(html_bytes)
 
-            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            def log_message(self, format: str, *args: Any) -> None:
                 pass  # silence request logs
 
         server = http.server.HTTPServer(("127.0.0.1", port), _Handler)
