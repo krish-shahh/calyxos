@@ -153,7 +153,7 @@ class MLXNode:
             return True
         if len(self._input_versions) != len(self._inputs):
             return True
-        for stored, inp in zip(self._input_versions, self._inputs):
+        for stored, inp in zip(self._input_versions, self._inputs, strict=False):
             if inp.version != stored:
                 return True
             # An upstream node may be transitively stale even though its
